@@ -33,7 +33,9 @@ def get_db_url():
 
 @contextmanager
 def conectar_banco():
-    conn = psycopg2.connect(get_db_url())
+    url = get_db_url()
+    url = url.split("?")[0]  # Remove qualquer parametro como ?pgbouncer=true
+    conn = psycopg2.connect(url)
     try:
         yield conn
         conn.commit()
