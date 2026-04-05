@@ -1,0 +1,8 @@
+streamlit>=1.32,<2.0
+pandas>=2.0,<3.0
+plotly>=5.0,<6.0
+reportlab>=4.0,<5.0
+openpyxl>=3.1,<4.0
+psycopg2-binary
+python-dotenv
+sqlalchemy>=2.0,<3.0
