@@ -1,7 +1,11 @@
-logs/
-*.log
+.env
+config.py
+database/
+*.db
 __pycache__/
 *.pyc
-.env
-.env.*
-database/
+logs/
+.flake8
+teste_conexao.py
+conexao_teste.py
+atualizar_base.bat

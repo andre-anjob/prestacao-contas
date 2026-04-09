@@ -1,3 +1,4 @@
+import os
 import subprocess
 import sys
 import io
@@ -14,6 +15,15 @@ LOG_DIR = BASE_DIR / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 LOG_FILE = LOG_DIR / "atualizacao.log"
 
+# Garante DATABASE_URL mesmo sem .env
+if not os.environ.get("DATABASE_URL"):
+    try:
+        sys.path.insert(0, str(BASE_DIR))
+        from config import DATABASE_URL as _db_url
+        os.environ["DATABASE_URL"] = _db_url
+    except ImportError:
+        pass
+
 
 def log(mensagem):
     if not mensagem or not str(mensagem).strip():
@@ -23,7 +33,6 @@ def log(mensagem):
         if not linha:
             continue
         entrada = f"[{datetime.now().strftime('%d/%m/%Y %H:%M:%S')}] {linha}"
-        # Tenta escrever no log com retry
         for tentativa in range(3):
             try:
                 with open(LOG_FILE, "a", encoding="utf-8", errors="replace") as f:
@@ -36,31 +45,6 @@ def log(mensagem):
             print(entrada)
         except Exception:
             pass
-
-
-def popup(titulo, mensagem, tipo="Information"):
-    mensagem_limpa = (
-        mensagem
-        .replace("'", "")
-        .replace('"', "")
-        .replace("\n", " | ")
-        .encode("ascii", errors="replace")
-        .decode("ascii")
-    )
-    titulo_limpo = (
-        titulo
-        .encode("ascii", errors="replace")
-        .decode("ascii")
-    )
-    subprocess.run([
-        "powershell", "-Command",
-        f'Add-Type -AssemblyName PresentationFramework; '
-        f'[System.Windows.MessageBox]::Show('
-        f'"{mensagem_limpa}", '
-        f'"{titulo_limpo}", '
-        f'"OK", '
-        f'"{tipo}")'
-    ])
 
 
 def main():
@@ -83,11 +67,7 @@ def main():
     if resultado_etl.returncode != 0:
         erro = resultado_etl.stderr or "Erro desconhecido."
         log(f"ERRO NO ETL: {erro}")
-        popup(
-            "Erro - Atualizar Base SmartCob",
-            f"Erro na ETAPA 1 (ETL). Verifique o log em: {LOG_FILE}",
-            tipo="Error",
-        )
+        log("ATUALIZACAO ABORTADA — verifique o log acima.")
         sys.exit(1)
 
     # ETAPA 2 — Usuarios
@@ -106,22 +86,12 @@ def main():
     if resultado_usuarios.returncode != 0:
         erro = resultado_usuarios.stderr or "Erro desconhecido."
         log(f"ERRO AO CRIAR USUARIOS: {erro}")
-        popup(
-            "Erro - Atualizar Base SmartCob",
-            f"Erro na ETAPA 2 (Usuarios). Verifique o log em: {LOG_FILE}",
-            tipo="Error",
-        )
+        log("ATUALIZACAO ABORTADA — verifique o log acima.")
         sys.exit(1)
 
     duracao = (datetime.now() - inicio).seconds
     log(f"=== ATUALIZACAO CONCLUIDA em {duracao}s ===")
-    popup(
-        "Sucesso - Atualizar Base SmartCob",
-        f"Base atualizada com sucesso! Duracao: {duracao} segundos.",
-        tipo="Information",
-    )
 
 
 if __name__ == "__main__":
     main()
-    
