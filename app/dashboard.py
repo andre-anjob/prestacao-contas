@@ -3,17 +3,16 @@ import sys
 import time
 from io import BytesIO
 
-from dotenv import load_dotenv
-load_dotenv()
-
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
+from dotenv import load_dotenv
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
 
+load_dotenv()
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if BASE_DIR not in sys.path:
@@ -116,14 +115,12 @@ COLUNAS_TABELA_DESEJADAS = [
 def carregar_dados():
     import os
     from sqlalchemy import create_engine
-
     database_url = os.environ.get("DATABASE_URL", "")
     if database_url.startswith("postgresql://"):
         database_url = database_url.replace("postgresql://", "postgresql+psycopg2://", 1)
-
+    database_url = database_url.split("?")[0]
     engine = create_engine(database_url)
     return pd.read_sql("SELECT * FROM pagamentos", engine)
-
 
 def inicializar_sessao():
     st.session_state.setdefault("logado", False)
@@ -143,6 +140,23 @@ def inicializar_sessao():
 def obter_colunas_tabela(df):
     colunas_exibir = []
 
+    colunas_valor = {
+        "V. Princ", "V. Juros Contrat", "V. Juros Asses",
+        "V. Multa", "V. Honor", "V. Receb", "V. Repasse", "V. Comissão"
+    }
+
+    def formatar_cpf_cnpj(valor):
+        if pd.isna(valor):
+            return ""
+        numero = str(int(float(valor))) if str(valor).replace(".", "").isdigit() else str(valor)
+        numero = numero.strip().replace(".", "").replace("-", "").replace("/", "")
+        numero = numero.zfill(14) if len(numero) > 11 else numero.zfill(11)
+        if len(numero) == 14:
+            return f"{numero[:2]}.{numero[2:5]}.{numero[5:8]}/{numero[8:12]}-{numero[12:]}"
+        elif len(numero) == 11:
+            return f"{numero[:3]}.{numero[3:6]}.{numero[6:9]}-{numero[9:]}"
+        return numero
+
     for nome_exibicao, aliases in COLUNAS_TABELA_DESEJADAS:
         try:
             coluna_real = resolver_coluna(df, *aliases)
@@ -152,11 +166,18 @@ def obter_colunas_tabela(df):
         if coluna_real not in df.columns:
             continue
 
-        serie = df[coluna_real]
-        if nome_exibicao == coluna_real:
-            colunas_exibir.append(serie.rename(nome_exibicao))
-        else:
-            colunas_exibir.append(serie.rename(nome_exibicao))
+        serie = df[coluna_real].rename(nome_exibicao)
+
+        if nome_exibicao in colunas_valor:
+            serie = pd.to_numeric(serie, errors="coerce")
+            serie = serie.apply(
+                lambda v: f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+                if pd.notna(v) else ""
+            )
+        elif nome_exibicao == "CPF":
+            serie = serie.apply(formatar_cpf_cnpj)
+
+        colunas_exibir.append(serie)
 
     if not colunas_exibir:
         return df.iloc[:, 0:0].copy()
@@ -168,19 +189,12 @@ def aplicar_estilos():
     st.markdown(
         """
         <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
             @keyframes floatGlow {
-                0% {
-                    transform: scale(1) translateY(0px);
-                    box-shadow: 0 16px 40px rgba(10, 31, 102, 0.26);
-                }
-                50% {
-                    transform: scale(1.045) translateY(-4px);
-                    box-shadow: 0 24px 56px rgba(27, 60, 136, 0.34);
-                }
-                100% {
-                    transform: scale(1) translateY(0px);
-                    box-shadow: 0 16px 40px rgba(10, 31, 102, 0.26);
-                }
+                0% { transform: scale(1) translateY(0px); box-shadow: 0 16px 40px rgba(10, 31, 102, 0.26); }
+                50% { transform: scale(1.045) translateY(-4px); box-shadow: 0 24px 56px rgba(27, 60, 136, 0.34); }
+                100% { transform: scale(1) translateY(0px); box-shadow: 0 16px 40px rgba(10, 31, 102, 0.26); }
             }
 
             @keyframes pulseLoader {
@@ -189,10 +203,7 @@ def aplicar_estilos():
                 100% { transform: scale(0.96); opacity: 0.7; }
             }
 
-            html,
-            body,
-            [data-testid="stAppViewContainer"],
-            [data-testid="stApp"] {
+            html, body, [data-testid="stAppViewContainer"], [data-testid="stApp"] {
                 min-height: 100vh;
                 background:
                     radial-gradient(circle at top left, rgba(218, 223, 232, 0.9), transparent 24%),
@@ -203,21 +214,10 @@ def aplicar_estilos():
                 background-attachment: fixed;
             }
 
-            [data-testid="stAppViewContainer"] > .main {
-                background: transparent;
-            }
-
-            [data-testid="stAppViewContainer"] > .main > div {
-                padding-top: 0 !important;
-            }
-
-            [data-testid="stVerticalBlock"] {
-                gap: 0 !important;
-            }
-
-            .main {
-                padding-top: 0 !important;
-            }
+            [data-testid="stAppViewContainer"] > .main { background: transparent; }
+            [data-testid="stAppViewContainer"] > .main > div { padding-top: 0 !important; }
+            [data-testid="stVerticalBlock"] { gap: 0 !important; }
+            .main { padding-top: 0 !important; }
 
             .block-container {
                 padding: 1rem 1.25rem 1.25rem 1.25rem !important;
@@ -225,6 +225,70 @@ def aplicar_estilos():
                 display: block !important;
             }
 
+            /* ===== TOPO DO DASHBOARD ===== */
+            .bloco-logos-dashboard {
+                background: linear-gradient(135deg, #000040 0%, #0a1f66 55%, #1b3c88 100%);
+                padding: 6px 12px;
+                border-radius: 12px;
+                width: 180px;
+                height: 80px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 10px;
+                box-shadow: 0 6px 12px rgba(0, 0, 0, 0.16);
+                margin-top: 2px;
+                margin-left: 4px;
+            }
+
+            .bloco-logos-dashboard,
+            .bloco-logos-dashboard * { color: #f8fbff !important; }
+
+            .logo-principal {
+                max-height: 50px;
+                max-width: 136px;
+                object-fit: contain;
+            }
+
+            .logo-secundaria {
+                max-height: 26px;
+                max-width: 78px;
+                object-fit: contain;
+            }
+
+            .topo-dashboard-wrap {
+                padding: 1.5rem 0 1rem 0;
+            }
+
+            .topo-dashboard-title {
+                margin: 0;
+                line-height: 1.1;
+                font-size: clamp(2rem, 2.3vw, 2.8rem);
+                font-weight: 700;
+                color: #10213f !important;
+                letter-spacing: -0.02em;
+            }
+
+            .topo-dashboard-subtitle {
+                margin-top: 0.45rem;
+                color: #4b5b78;
+                font-size: 0.9rem;
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+                flex-wrap: wrap;
+            }
+
+            .topo-badge {
+                background: linear-gradient(135deg, #0a1f66, #1b3c88);
+                border-radius: 20px;
+                padding: 2px 10px;
+                font-size: 0.75rem;
+                color: #ffffff !important;
+                font-weight: 500;
+            }
+
+            /* ===== LOGIN ===== */
             [data-testid="stAppViewContainer"]:has(.login-stage-marker),
             [data-testid="stAppViewContainer"]:has(.login-stage-marker) > .main,
             [data-testid="stAppViewContainer"]:has(.login-stage-marker) > .main > div,
@@ -241,9 +305,7 @@ def aplicar_estilos():
                 display: none !important;
             }
 
-            .login-stage-marker {
-                display: none;
-            }
+            .login-stage-marker { display: none; }
 
             .login-shell {
                 position: relative;
@@ -276,37 +338,6 @@ def aplicar_estilos():
                 justify-content: center;
             }
 
-            div[data-testid="stVerticalBlock"]:has(.login-stage-marker)::before {
-                width: 520px;
-                height: 520px;
-                background: radial-gradient(circle, rgba(30, 80, 180, 0.40), transparent 62%);
-                top: -170px;
-                left: -170px;
-                animation: float 8s ease-in-out infinite;
-            }
-
-            div[data-testid="stVerticalBlock"]:has(.login-stage-marker)::after {
-                width: 700px;
-                height: 700px;
-                background: radial-gradient(circle, rgba(180, 80, 20, 0.25), transparent 66%);
-                bottom: -280px;
-                right: -240px;
-                animation: float 8s ease-in-out infinite;
-                animation-delay: -3s;
-            }
-
-            @keyframes float {
-                0%   { transform: scale(1)     translateY(0px);   }
-                50%  { transform: scale(1.05)  translateY(-20px); }
-                100% { transform: scale(1)     translateY(0px);   }
-            }
-
-            div[data-testid="stVerticalBlock"]:has(.login-stage-marker) > div {
-                position: relative;
-                z-index: 1;
-                width: 100%;
-            }
-
             div[data-testid="stVerticalBlock"]:has(.login-stage-marker)::before,
             div[data-testid="stVerticalBlock"]:has(.login-stage-marker)::after {
                 content: "";
@@ -318,62 +349,56 @@ def aplicar_estilos():
             }
 
             div[data-testid="stVerticalBlock"]:has(.login-stage-marker)::before {
-                filter: blur(42px);
-                pointer-events: none;
-                z-index: 0;
+                width: 520px; height: 520px;
+                background: radial-gradient(circle, rgba(30, 80, 180, 0.40), transparent 62%);
+                top: -170px; left: -170px;
+                animation: float 8s ease-in-out infinite;
             }
 
             div[data-testid="stVerticalBlock"]:has(.login-stage-marker)::after {
-                filter: blur(42px);
-                pointer-events: none;
-                z-index: 0;
+                width: 700px; height: 700px;
+                background: radial-gradient(circle, rgba(180, 80, 20, 0.25), transparent 66%);
+                bottom: -280px; right: -240px;
+                animation: float 8s ease-in-out infinite;
+                animation-delay: -3s;
+            }
+
+            @keyframes float {
+                0%   { transform: scale(1) translateY(0px); }
+                50%  { transform: scale(1.05) translateY(-20px); }
+                100% { transform: scale(1) translateY(0px); }
+            }
+
+            div[data-testid="stVerticalBlock"]:has(.login-stage-marker) > div {
+                position: relative; z-index: 1; width: 100%;
             }
 
             .login-shell::before {
                 content: "";
                 position: absolute;
-                width: 460px;
-                height: 460px;
-                left: 50%;
-                top: 42%;
+                width: 460px; height: 460px;
+                left: 50%; top: 42%;
                 transform: translate(-50%, -50%);
                 background: radial-gradient(circle, rgba(86, 125, 208, 0.24), transparent 60%);
                 filter: blur(48px);
                 border-radius: 999px;
-                pointer-events: none;
-                z-index: 0;
+                pointer-events: none; z-index: 0;
             }
 
             .login-shell::after {
                 content: "";
                 position: absolute;
-                width: 300px;
-                height: 300px;
-                left: 28%;
-                bottom: 14%;
+                width: 300px; height: 300px;
+                left: 28%; bottom: 14%;
                 background: radial-gradient(circle, rgba(120, 151, 226, 0.2), transparent 60%);
                 filter: blur(44px);
                 border-radius: 999px;
-                pointer-events: none;
-                z-index: 0;
+                pointer-events: none; z-index: 0;
             }
 
-            .login-form-col {
-                width: 100%;
-                max-width: 420px;
-                margin: 0 auto;
-            }
-
-            .login-form-header {
-                margin-bottom: 0.95rem;
-                display: flex;
-                justify-content: center;
-            }
-
-            .login-form-panel {
-                position: relative;
-                width: 100%;
-            }
+            .login-form-col { width: 100%; max-width: 420px; margin: 0 auto; }
+            .login-form-header { margin-bottom: 0.95rem; display: flex; justify-content: center; }
+            .login-form-panel { position: relative; width: 100%; }
 
             .login-card-logo {
                 width: 100%;
@@ -393,9 +418,7 @@ def aplicar_estilos():
                 box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
             }
 
-            [data-testid="stVerticalBlock"]:has(.login-stage-marker) div[data-testid="stForm"] > div:first-child {
-                gap: 0.2rem;
-            }
+            [data-testid="stVerticalBlock"]:has(.login-stage-marker) div[data-testid="stForm"] > div:first-child { gap: 0.2rem; }
 
             [data-testid="stVerticalBlock"]:has(.login-stage-marker) div[data-testid="stForm"] label {
                 color: rgba(255, 255, 255, 0.82) !important;
@@ -403,9 +426,7 @@ def aplicar_estilos():
                 font-size: 0.9rem !important;
             }
 
-            [data-testid="stVerticalBlock"]:has(.login-stage-marker) div[data-testid="stForm"] .stTextInput {
-                margin-bottom: 0.28rem;
-            }
+            [data-testid="stVerticalBlock"]:has(.login-stage-marker) div[data-testid="stForm"] .stTextInput { margin-bottom: 0.28rem; }
 
             [data-testid="stVerticalBlock"]:has(.login-stage-marker) div[data-testid="stTextInput"] input {
                 background: #ffffff !important;
@@ -413,73 +434,64 @@ def aplicar_estilos():
                 border: 1px solid rgba(255, 255, 255, 0.24) !important;
             }
 
-            [data-testid="stVerticalBlock"]:has(.login-stage-marker) div[data-testid="stTextInput"] input::placeholder {
-                color: #7b879c !important;
-            }
+            [data-testid="stVerticalBlock"]:has(.login-stage-marker) div[data-testid="stTextInput"] input::placeholder { color: #7b879c !important; }
 
             [data-testid="stVerticalBlock"]:has(.login-stage-marker) div[data-testid="stTextInput"] input:focus {
                 border: 1px solid #bfdbfe !important;
                 box-shadow: 0 0 0 1px #bfdbfe, 0 0 0 5px rgba(191, 219, 254, 0.18) !important;
             }
 
-            .bloco-logos-dashboard {
-                background: linear-gradient(135deg, #000040 0%, #0a1f66 55%, #1b3c88 100%);
-                padding: 6px 12px;
-                border-radius: 12px;
-                width: 180px;
-                height: 80px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                gap: 10px;
-                box-shadow: 0 6px 12px rgba(0, 0, 0, 0.16);
-            }
-
-            .login-brand-panel,
-            .login-brand-panel *,
-            .bloco-logos-dashboard,
-            .bloco-logos-dashboard *,
+            /* ===== METRICAS ===== */
             div[data-testid="stMetric"],
-            div[data-testid="stMetric"] * {
-                color: #f8fbff !important;
+            div[data-testid="stMetric"] * { color: #f8fbff !important; }
+
+            div[data-testid="stMetric"] {
+                background: linear-gradient(135deg, #0d2260, #1b3c88);
+                border: 1px solid rgba(100, 149, 255, 0.2);
+                padding: 18px 20px;
+                border-radius: 16px;
+                box-shadow: 0 8px 24px rgba(10, 31, 102, 0.15);
+                transition: transform 0.2s ease, box-shadow 0.2s ease;
             }
 
-            .bloco-logos-dashboard {
-                margin-top: 2px;
-                margin-left: 4px;
+            div[data-testid="stMetric"]:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 12px 32px rgba(10, 31, 102, 0.22);
             }
 
-            .logo-principal {
-                max-height: 50px;
-                max-width: 136px;
-                object-fit: contain;
+            div[data-testid="stMetricLabel"] {
+                color: rgba(180, 210, 255, 0.85) !important;
+                font-size: 0.82rem !important;
+                font-weight: 500 !important;
+                text-transform: uppercase;
+                letter-spacing: 0.04em;
             }
 
-            .logo-secundaria {
-                max-height: 26px;
-                max-width: 78px;
-                object-fit: contain;
-            }
-
-            .topo-dashboard-wrap {
-                padding: 0.25rem 0 1rem 0;
-            }
-
-            .topo-dashboard-title {
-                margin: 0;
-                line-height: 1.1;
-                font-size: clamp(2rem, 2.3vw, 2.8rem);
-                font-weight: 700;
-                color: #10213f !important;
+            div[data-testid="stMetricValue"] {
+                color: #ffffff !important;
+                font-size: 26px !important;
+                font-weight: 700 !important;
                 letter-spacing: -0.02em;
             }
 
-            .topo-dashboard-subtitle {
-                margin-top: 0.45rem;
-                color: #4b5b78;
-                font-size: 0.98rem;
+            /* ===== FILTROS ===== */
+            .filtros-wrap {
+                background: rgba(255, 255, 255, 0.7);
+                border: 1px solid rgba(27, 60, 136, 0.1);
+                border-radius: 16px;
+                padding: 1rem 1.2rem 1rem 1.2rem;
+                margin-bottom: 1rem;
+                box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
             }
 
+            .filtros-titulo {
+                font-size: 0.78rem;
+                font-weight: 600;
+                color: #4b5b78;
+                text-transform: uppercase;
+                letter-spacing: 0.06em;
+                margin-bottom: 1rem;
+            }
             div[data-testid="stTextInput"] input {
                 border: 1px solid rgba(154, 166, 178, 0.22) !important;
                 border-radius: 12px !important;
@@ -497,19 +509,13 @@ def aplicar_estilos():
                 box-shadow: 0 0 0 1px #1b3c88, 0 0 0 6px rgba(27, 60, 136, 0.12) !important;
             }
 
-            div[data-testid="stTextInput"] input::placeholder {
-                color: #7f8aa3 !important;
-            }
-
-            div[data-testid="stDateInputField"] {
-                border-radius: 10px !important;
-            }
+            div[data-testid="stTextInput"] input::placeholder { color: #7f8aa3 !important; }
+            div[data-testid="stDateInputField"] { border-radius: 10px !important; }
 
             div[data-testid="stDateInput"] label,
-            div[data-testid="stDateInput"] p {
-                color: #10213f !important;
-            }
+            div[data-testid="stDateInput"] p { color: #10213f !important; }
 
+            /* ===== EXPANDER ===== */
             div[data-testid="stExpander"] summary,
             div[data-testid="stExpander"] summary p,
             div[data-testid="stExpander"] label,
@@ -520,9 +526,7 @@ def aplicar_estilos():
             div[data-testid="stExpanderDetails"] p,
             div[data-testid="stExpanderDetails"] span,
             div[data-testid="stExpanderDetails"] [data-testid="stMarkdownContainer"] p,
-            div[data-testid="stExpanderDetails"] [data-testid="stCaptionContainer"] {
-                color: #f8fbff !important;
-            }
+            div[data-testid="stExpanderDetails"] [data-testid="stCaptionContainer"] { color: #f8fbff !important; }
 
             div[data-testid="stExpander"] {
                 background: linear-gradient(135deg, #17336f, #1b3c88);
@@ -532,14 +536,10 @@ def aplicar_estilos():
                 box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
             }
 
-            div[data-testid="stExpander"] summary {
-                border-radius: 12px;
-            }
+            div[data-testid="stExpander"] summary { border-radius: 12px; }
+            div[data-testid="stExpanderDetails"] { padding-top: 0.4rem; }
 
-            div[data-testid="stExpanderDetails"] {
-                padding-top: 0.4rem;
-            }
-
+            /* ===== BOTOES ===== */
             div[data-testid="stForm"] div[data-testid="stFormSubmitButton"] > button {
                 width: 100%;
                 border-radius: 12px;
@@ -559,103 +559,32 @@ def aplicar_estilos():
                 box-shadow: 0 16px 32px rgba(4, 15, 42, 0.22);
             }
 
-            .botao-sair-vermelho div.stButton > button {
-                background-color: #c62828;
+            button[data-testid="stBaseButton-secondary"] {
+                background: linear-gradient(135deg, #c62828, #e53935) !important;
                 color: #f8fbff !important;
-                border: 1px solid #b71c1c;
-                font-weight: 600;
-                border-radius: 10px;
+                border: 1px solid #b71c1c !important;
+                font-weight: 600 !important;
+                border-radius: 10px !important;
+                transition: opacity 0.2s ease !important;
+                min-height: 2rem !important;
+                height: 2rem !important;
+                padding: 0 1rem !important;
+                font-size: 0.85rem !important;
+                width: auto !important;
             }
 
-            .botao-sair-vermelho div.stButton > button:hover,
-            .botao-sair-vermelho div.stButton > button:focus,
-            .botao-sair-vermelho div.stButton > button:focus-visible {
-                background-color: #b71c1c;
-                color: #10213f !important;
-                border: 1px solid #9f1717;
-            }
-
-            .dashboard-botoes-row [data-testid="stHorizontalBlock"] {
-                gap: 0.3rem !important;
-                justify-content: flex-start !important;
-            }
-
-            .dashboard-botoes-row div[data-testid="stDownloadButton"] > button {
-                min-width: 104px;
-                max-width: 104px;
+            button[data-testid="stBaseButton-secondary"]:hover,
+            button[data-testid="stBaseButton-secondary"]:focus,
+            button[data-testid="stBaseButton-secondary"]:active {
+                opacity: 0.8 !important;
+                background: linear-gradient(135deg, #c62828, #e53935) !important;
                 color: #f8fbff !important;
             }
 
-            .dashboard-botoes-row div[data-testid="stDownloadButton"] > button,
-            .dashboard-botoes-row div[data-testid="stDownloadButton"] > button span,
-            .dashboard-botoes-row div[data-testid="stDownloadButton"] > button p,
-            .dashboard-botoes-row div[data-testid="stDownloadButton"] > button div,
-            .botao-sair-vermelho div.stButton > button,
-            .botao-sair-vermelho div.stButton > button span,
-            .botao-sair-vermelho div.stButton > button p,
-            .botao-sair-vermelho div.stButton > button div {
-                transition: color 0.15s ease !important;
+            button[data-testid="stBaseButton-secondary"] * {
+                color: #f8fbff !important;
             }
-
-            .dashboard-botoes-row div[data-testid="stDownloadButton"] > button *,
-            .botao-sair-vermelho div.stButton > button * {
-                color: inherit !important;
-            }
-
-            .dashboard-botoes-row div[data-testid="stDownloadButton"] > button:hover,
-            .dashboard-botoes-row div[data-testid="stDownloadButton"] > button:focus,
-            .dashboard-botoes-row div[data-testid="stDownloadButton"] > button:focus-visible,
-            .dashboard-botoes-row div[data-testid="stDownloadButton"] > button:hover span,
-            .dashboard-botoes-row div[data-testid="stDownloadButton"] > button:hover p,
-            .dashboard-botoes-row div[data-testid="stDownloadButton"] > button:hover div,
-            .dashboard-botoes-row div[data-testid="stDownloadButton"] > button:focus span,
-            .dashboard-botoes-row div[data-testid="stDownloadButton"] > button:focus p,
-            .dashboard-botoes-row div[data-testid="stDownloadButton"] > button:focus div,
-            .dashboard-botoes-row div[data-testid="stDownloadButton"] > button:focus-visible span,
-            .dashboard-botoes-row div[data-testid="stDownloadButton"] > button:focus-visible p,
-            .dashboard-botoes-row div[data-testid="stDownloadButton"] > button:focus-visible div,
-            .dashboard-botoes-row div[data-testid="stDownloadButton"] > button:hover *,
-            .dashboard-botoes-row div[data-testid="stDownloadButton"] > button:focus *,
-            .dashboard-botoes-row div[data-testid="stDownloadButton"] > button:focus-visible * {
-                color: #081225 !important;
-            }
-
-            .botao-sair-vermelho div.stButton > button:hover,
-            .botao-sair-vermelho div.stButton > button:focus,
-            .botao-sair-vermelho div.stButton > button:focus-visible,
-            .botao-sair-vermelho div.stButton > button:hover span,
-            .botao-sair-vermelho div.stButton > button:hover p,
-            .botao-sair-vermelho div.stButton > button:hover div,
-            .botao-sair-vermelho div.stButton > button:focus span,
-            .botao-sair-vermelho div.stButton > button:focus p,
-            .botao-sair-vermelho div.stButton > button:focus div,
-            .botao-sair-vermelho div.stButton > button:focus-visible span,
-            .botao-sair-vermelho div.stButton > button:focus-visible p,
-            .botao-sair-vermelho div.stButton > button:focus-visible div,
-            .botao-sair-vermelho div.stButton > button:hover *,
-            .botao-sair-vermelho div.stButton > button:focus *,
-            .botao-sair-vermelho div.stButton > button:focus-visible * {
-                color: #081225 !important;
-            }
-
-            div[data-testid="stMetric"] {
-                background: linear-gradient(135deg, #17336f, #1b3c88);
-                border: 1px solid rgba(27, 60, 136, 0.18);
-                padding: 16px;
-                border-radius: 14px;
-                box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
-            }
-
-            div[data-testid="stMetricLabel"] {
-                color: #eff6ff !important;
-            }
-
-            div[data-testid="stMetricValue"] {
-                color: #ffffff !important;
-                font-size: 28px;
-                font-weight: 700;
-            }
-
+                        /* ===== GRAFICO ===== */
             .grafico-card {
                 margin-top: 0.35rem;
                 margin-bottom: 0.4rem;
@@ -666,6 +595,7 @@ def aplicar_estilos():
                 box-shadow: 0 10px 28px rgba(15, 23, 42, 0.06);
             }
 
+            /* ===== TABELA ===== */
             .tabela-card {
                 margin-top: 0.65rem;
                 padding: 0.9rem 0.9rem 0.5rem 0.9rem;
@@ -685,18 +615,8 @@ def aplicar_estilos():
                 position: relative;
             }
 
-            .tabela-header-titulo {
-                color: #10213f;
-                font-size: 1.02rem;
-                font-weight: 700;
-                letter-spacing: -0.01em;
-            }
-
-            .tabela-header-subtitulo {
-                color: #5b6b86;
-                font-size: 0.84rem;
-                margin-top: 0.12rem;
-            }
+            .tabela-header-titulo { color: #10213f; font-size: 1.02rem; font-weight: 700; letter-spacing: -0.01em; }
+            .tabela-header-subtitulo { color: #5b6b86; font-size: 0.84rem; margin-top: 0.12rem; }
 
             .tabela-acoes {
                 display: flex;
@@ -712,98 +632,54 @@ def aplicar_estilos():
                 z-index: 8;
             }
 
-            .tabela-acoes [data-testid="stPopover"] {
-                width: 100%;
-                display: flex;
-                justify-content: flex-end;
-            }
-
-            .tabela-acoes [data-testid="stPopover"] > div {
-                width: 100%;
-                display: flex;
-                justify-content: flex-end;
-            }
-
-            .tabela-acoes [data-testid="stPopover"] button {
-                min-width: 154px;
-                border-radius: 12px;
-                padding: 0.45rem 0.9rem;
-                border: 1px solid rgba(27, 60, 136, 0.12);
-                background: linear-gradient(135deg, #17336f, #1b3c88) !important;
+            .tabela-acoes [data-testid="stPopover"] { width: 100%; display: flex; justify-content: flex-end; }
+            .tabela-acoes [data-testid="stPopover"] > div { width: 100%; display: flex; justify-content: flex-end; }
+            
+            [data-testid="stPopover"] button {
+                background-color: #1b3c88 !important;
                 color: #f8fbff !important;
-                font-weight: 600;
-                box-shadow: 0 14px 30px rgba(15, 23, 42, 0.18);
+                font-weight: 600 !important;
+                border-radius: 12px !important;
+                border: 1px solid rgba(27, 60, 136, 0.12) !important;
+                transition: opacity 0.2s ease !important;
             }
 
-            .tabela-acoes [data-testid="stPopover"] button:hover,
-            .tabela-acoes [data-testid="stPopover"] button:focus,
-            .tabela-acoes [data-testid="stPopover"] button:focus-visible {
-                border-color: rgba(27, 60, 136, 0.16);
-                color: #081225 !important;
+            [data-testid="stPopover"] button:hover,
+            [data-testid="stPopover"] button:focus,
+            [data-testid="stPopover"] button:active {
+                opacity: 0.8 !important;
+                background-color: #1b3c88 !important;
+                color: #f8fbff !important;
             }
 
-            .tabela-acoes [data-testid="stPopover"] button * {
-                color: inherit !important;
+            [data-testid="stPopover"] button p,
+            [data-testid="stPopover"] button span,
+            [data-testid="stPopover"] button * {
+                color: #f8fbff !important;
             }
-
-            .exportacao-popover-titulo {
-                color: #10213f;
-                font-size: 0.96rem;
-                font-weight: 700;
-                margin-bottom: 0.2rem;
-            }
-
-            .exportacao-popover-subtitulo {
-                color: #5b6b86;
-                font-size: 0.82rem;
-                line-height: 1.45;
-                margin-bottom: 0.7rem;
-            }
+            .exportacao-popover-titulo { color: #10213f; font-size: 0.96rem; font-weight: 700; margin-bottom: 0.2rem; }
+            .exportacao-popover-subtitulo { color: #5b6b86; font-size: 0.82rem; line-height: 1.45; margin-bottom: 0.7rem; }
 
             .exportacao-icone-wrap {
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                width: 44px;
-                height: 44px;
-                border-radius: 12px;
+                display: flex; align-items: center; justify-content: center;
+                width: 44px; height: 44px; border-radius: 12px;
                 background: rgba(255, 255, 255, 0.84);
                 border: 1px solid rgba(27, 60, 136, 0.08);
             }
 
-            .exportacao-icone {
-                width: 26px;
-                height: 26px;
-                object-fit: contain;
-            }
+            .exportacao-icone { width: 26px; height: 26px; object-fit: contain; }
 
             .tabela-card [data-testid="stElementToolbar"] {
-                display: none !important;
-                visibility: hidden !important;
-                opacity: 0 !important;
-                pointer-events: none !important;
+                display: none !important; visibility: hidden !important;
+                opacity: 0 !important; pointer-events: none !important;
             }
 
-            .tabela-card div[data-testid="stDataFrame"] {
-                margin-top: -0.1rem;
-            }
+            .tabela-card div[data-testid="stDataFrame"] { margin-top: -0.1rem; }
 
-            @media (max-width: 980px) {
-                .tabela-acoes {
-                    margin-top: -1.55rem;
-                    margin-right: 0;
-                }
-
-                .tabela-acoes [data-testid="stPopover"] button {
-                    min-width: 138px;
-                }
-            }
-
+            /* ===== LOADER ===== */
             .dashboard-loader-wrap {
                 min-height: calc(100vh - 2rem);
-                display: flex;
-                align-items: center;
-                justify-content: center;
+                display: flex; align-items: center; justify-content: center;
             }
 
             .dashboard-loader-card {
@@ -818,8 +694,7 @@ def aplicar_estilos():
             }
 
             .dashboard-loader-dot {
-                width: 56px;
-                height: 56px;
+                width: 56px; height: 56px;
                 margin: 0 auto 1rem auto;
                 border-radius: 999px;
                 background: radial-gradient(circle at 35% 35%, #60a5fa, #1d4ed8 58%, #1b3c88 100%);
@@ -827,63 +702,48 @@ def aplicar_estilos():
                 box-shadow: 0 0 0 10px rgba(29, 78, 216, 0.08);
             }
 
-            .dashboard-loader-title {
-                color: #f8fbff;
-                font-size: 1.35rem;
-                font-weight: 700;
-                letter-spacing: -0.02em;
-            }
+            .dashboard-loader-title { color: #f8fbff; font-size: 1.35rem; font-weight: 700; letter-spacing: -0.02em; }
+            .dashboard-loader-subtitle { color: #93a4c8; font-size: 0.95rem; margin-top: 0.45rem; line-height: 1.55; }
 
-            .dashboard-loader-subtitle {
-                color: #93a4c8;
-                font-size: 0.95rem;
-                margin-top: 0.45rem;
-                line-height: 1.55;
-            }
-
+            /* ===== RESPONSIVE ===== */
             @media (max-width: 980px) {
+                .topo-dashboard-outer { border-radius: 0 0 14px 14px; padding: 0.75rem 1rem; }
+                .topo-dashboard-title { font-size: 1.1rem; }
+                .tabela-acoes { margin-top: -1.55rem; margin-right: 0; }
+                .tabela-acoes [data-testid="stPopover"] button { min-width: 138px; }
+
                 div[data-testid="stVerticalBlock"]:has(.login-stage-marker) {
-                    width: 100%;
-                    margin: 0;
-                    padding: 0;
-                    min-height: auto;
-                    display: block;
+                    width: 100%; margin: 0; padding: 0; min-height: auto; display: block;
                 }
 
                 div[data-testid="stVerticalBlock"]:has(.login-stage-marker)::before {
-                    width: 320px;
-                    height: 320px;
-                    top: -100px;
-                    left: -100px;
+                    width: 320px; height: 320px; top: -100px; left: -100px;
                 }
 
                 div[data-testid="stVerticalBlock"]:has(.login-stage-marker)::after {
-                    width: 380px;
-                    height: 380px;
-                    right: -150px;
-                    bottom: -180px;
+                    width: 380px; height: 380px; right: -150px; bottom: -180px;
                 }
 
-                .login-shell::before {
-                    width: 280px;
-                    height: 280px;
-                }
-
-                .login-shell::after {
-                    width: 180px;
-                    height: 180px;
-                }
-
-                .login-form-col {
-                    max-width: none;
-                    margin: 0 auto;
-                }
-
-                .login-shell {
-                    min-height: 100vh;
-                    padding: 1.5rem 1rem;
-                }
+                .login-shell::before { width: 280px; height: 280px; }
+                .login-shell::after { width: 180px; height: 180px; }
+                .login-form-col { max-width: none; margin: 0 auto; }
+                .login-shell { min-height: 100vh; padding: 1.5rehm 1rem; }
             }
+
+            .tabela-acoes [data-testid="stPopover"] button:hover,
+            .tabela-acoes [data-testid="stPopover"] button:focus,
+            .tabela-acoes [data-testid="stPopover"] button:active {
+                background: linear-gradient(135deg, #17336f, #1b3c88) !important;
+                color: #f8fbff !important;
+                filter: brightness(1.2) !important;
+            }
+            [data-testid="stCaptionContainer"] p,
+            [data-testid="stCaptionContainer"] {
+                color: #10213f !important;
+                font-size: 0.82rem !important;
+            }
+
+
         </style>
         """,
         unsafe_allow_html=True,
@@ -970,6 +830,7 @@ def renderizar_login():
         else:
             st.error("Usuario ou senha invalidos.")
 
+
 def renderizar_primeiro_acesso():
     st.title("Troca obrigatoria de senha")
     st.info("Defina uma nova senha para continuar.")
@@ -1049,7 +910,7 @@ def preparar_dataframe():
     try:
         colunas = {
             "contratante": resolver_coluna(df, "Contratante"),
-            "valor_principal": resolver_coluna(df, "V. Princ"),
+            "valor_principal": resolver_coluna(df, "V. Receb"),
             "valor_repasse": resolver_coluna(df, "V. Repasse"),
             "valor_comissao": resolver_coluna(df, "V. Comissao", "V. Comissão", "V. ComissÃ£o"),
             "data_pagto": resolver_coluna(df, "Data Pagto"),
@@ -1068,20 +929,32 @@ def preparar_dataframe():
     return df, colunas
 
 
-def renderizar_topo():
+def renderizar_topo(data_atualizacao=None):
     col_logo, col_titulo, col_sair = st.columns([1.2, 5.2, 1.0], vertical_alignment="center")
+
+    usuario = st.session_state.get("usuario", "")
+    tipo = st.session_state.get("tipo_usuario", "")
+    badge_tipo = "Administrador" if tipo == "admin" else "Cliente"
+
+    data_str = ""
+    if data_atualizacao:
+        data_str = f'<span class="topo-badge">Dados de {data_atualizacao}</span>'
 
     with col_logo:
         renderizar_bloco_logos("bloco-logos-dashboard")
 
     with col_titulo:
         st.markdown(
-            """
+            f"""
             <div class="topo-dashboard-wrap">
                 <h1 class="topo-dashboard-title">Portal de Prestacao de Contas</h1>
-                <div class="topo-dashboard-subtitle">Usuario: {usuario}</div>
+                <div class="topo-dashboard-subtitle">
+                    <span>Usuario: <strong>{usuario}</strong></span>
+                    <span class="topo-badge">{badge_tipo}</span>
+                    {data_str}
+                </div>
             </div>
-            """.format(usuario=st.session_state["usuario"]),
+            """,
             unsafe_allow_html=True,
         )
 
@@ -1089,17 +962,11 @@ def renderizar_topo():
         st.markdown('<div class="botao-sair-vermelho">', unsafe_allow_html=True)
         if st.button("Sair", use_container_width=True):
             for chave in (
-                "logado",
-                "usuario",
-                "usuario_id",
-                "contratante",
-                "tipo_usuario",
-                "primeiro_acesso",
+                "logado", "usuario", "usuario_id", "contratante",
+                "tipo_usuario", "primeiro_acesso",
                 "mostrar_carregamento_dashboard",
-                "dashboard_df_preparado",
-                "dashboard_colunas_preparadas",
-                "login_usuario",
-                "login_senha",
+                "dashboard_df_preparado", "dashboard_colunas_preparadas",
+                "login_usuario", "login_senha",
             ):
                 st.session_state.pop(chave, None)
             st.rerun()
@@ -1111,7 +978,7 @@ def chave_checkbox_contratante(contratante):
 
 
 def renderizar_filtro_contratantes(contratantes):
-    st.markdown('<div style="color:#f8fbff; font-weight:700; margin-bottom:0.35rem;">Contratantes</div>', unsafe_allow_html=True)
+    st.markdown('<div style="color:#10213f; font-weight:700; margin-bottom:0.6rem; font-size:0.85rem; text-transform:uppercase; letter-spacing:0.05em;">Contratantes</div>', unsafe_allow_html=True)
 
     contratantes_cache = tuple(contratantes)
     if st.session_state.get("contratantes_disponiveis_cache") != contratantes_cache:
@@ -1166,23 +1033,12 @@ def renderizar_filtro_contratantes(contratantes):
 
         acoes_1, acoes_2 = st.columns(2)
         with acoes_1:
-            st.button(
-                "Marcar todos",
-                use_container_width=True,
-                key="marcar_todos_contratantes",
-                on_click=selecionar_todos,
-            )
+            st.button("Marcar todos", use_container_width=True, key="marcar_todos_contratantes", on_click=selecionar_todos)
         with acoes_2:
-            st.button(
-                "Limpar filtros",
-                use_container_width=True,
-                key="limpar_contratantes",
-                on_click=limpar_filtros,
-            )
+            st.button("Limpar filtros", use_container_width=True, key="limpar_contratantes", on_click=limpar_filtros)
 
         contratantes_visiveis = [
-            contratante
-            for contratante in contratantes
+            contratante for contratante in contratantes
             if busca in contratante.lower()
         ]
 
@@ -1196,10 +1052,7 @@ def renderizar_filtro_contratantes(contratantes):
                 if chave_checkbox not in st.session_state:
                     st.session_state[chave_checkbox] = contratante in selecionados_atuais
 
-                marcado = coluna.checkbox(
-                    contratante,
-                    key=chave_checkbox,
-                )
+                marcado = coluna.checkbox(contratante, key=chave_checkbox)
                 if marcado:
                     novos_selecionados.append(contratante)
 
@@ -1228,7 +1081,15 @@ def renderizar_filtro_contratantes(contratantes):
 
 def renderizar_dashboard():
     df, colunas = preparar_dataframe()
-    renderizar_topo()
+
+    # Data de atualizacao para exibir no topo
+    data_atualizacao = None
+    if not df.empty and colunas.get("data_pagto"):
+        data_max_raw = df[colunas["data_pagto"]].max()
+        if not pd.isna(data_max_raw):
+            data_atualizacao = pd.Timestamp(data_max_raw).strftime("%d/%m/%Y")
+
+    renderizar_topo(data_atualizacao=data_atualizacao)
 
     if df.empty:
         st.warning("Nao ha pagamentos disponiveis para exibicao.")
@@ -1247,6 +1108,9 @@ def renderizar_dashboard():
         return
 
     primeiro_dia_mes = data_max.replace(day=1)
+
+    st.markdown('<div class="filtros-wrap">', unsafe_allow_html=True)
+    st.markdown('<div class="filtros-titulo">Filtros</div>', unsafe_allow_html=True)
     filtro_1, filtro_2 = st.columns(2)
 
     with filtro_1:
@@ -1254,10 +1118,14 @@ def renderizar_dashboard():
         selecionados = renderizar_filtro_contratantes(contratantes)
 
     with filtro_2:
+        st.markdown('<div style="color:#10213f; font-weight:700; margin-bottom:0.6rem; font-size:0.85rem; text-transform:uppercase; letter-spacing:0.05em;">Periodo</div>', unsafe_allow_html=True)
         periodo = st.date_input(
             "Periodo",
             value=(primeiro_dia_mes.date(), data_max.date()),
+            format="DD/MM/YYYY",
+            label_visibility="collapsed",
         )
+    st.markdown("</div>", unsafe_allow_html=True)
 
     data_inicio = data_fim = None
     if isinstance(periodo, (list, tuple)):
@@ -1314,14 +1182,8 @@ def renderizar_dashboard():
         x=df_grafico["DataLabel"],
         y=df_grafico["Valor"],
         name="Sombra",
-        marker=dict(
-            color="rgba(15, 23, 42, 0.05)",
-            line=dict(color="rgba(15, 23, 42, 0.08)", width=0),
-        ),
-        width=0.66,
-        offset=0.018,
-        hoverinfo="skip",
-        showlegend=False,
+        marker=dict(color="rgba(15, 23, 42, 0.05)", line=dict(color="rgba(15, 23, 42, 0.08)", width=0)),
+        width=0.66, offset=0.018, hoverinfo="skip", showlegend=False,
     )
     fig.add_bar(
         x=df_grafico["DataLabel"],
@@ -1330,49 +1192,28 @@ def renderizar_dashboard():
         text=df_grafico["ValorLabel"],
         texttemplate="%{text}",
         textposition="outside",
-        marker=dict(
-            color="#e9781d",
-            line=dict(color="#c65f10", width=1.4),
-            opacity=0.97,
-        ),
+        marker=dict(color="#e9781d", line=dict(color="#c65f10", width=1.4), opacity=0.97),
         width=0.68,
-        hoverlabel=dict(
-            bgcolor="#fff7ed",
-            bordercolor="#c65f10",
-            font=dict(color="#10213f"),
-        ),
+        hoverlabel=dict(bgcolor="#fff7ed", bordercolor="#c65f10", font=dict(color="#10213f")),
         hovertemplate="<b>%{x}</b><br>Valor: %{text}<extra></extra>",
-        cliponaxis=False,
-        showlegend=False,
+        cliponaxis=False, showlegend=False,
     )
     fig.update_layout(
-        title=dict(
-            text="Evolucao de Valores por Dia",
-            x=0,
-            xanchor="left",
-            font=dict(size=18, color="#10213f"),
-        ),
+        title=dict(text="Evolucao de Valores por Dia", x=0, xanchor="left", font=dict(size=18, color="#10213f")),
         plot_bgcolor="#f8f9fa",
         paper_bgcolor="rgba(0,0,0,0)",
         font=dict(color="#334155", size=12),
-        barmode="overlay",
-        bargap=0.24,
-        bargroupgap=0.02,
+        barmode="overlay", bargap=0.24, bargroupgap=0.02,
         margin=dict(t=68, r=18, b=26, l=18),
         hovermode="x unified",
         xaxis=dict(
-            title="Data",
-            color="#10213f",
+            title="Data", color="#10213f",
             tickfont=dict(color="#334155", size=11),
             title_font=dict(color="#10213f", size=12),
-            gridcolor="rgba(0,0,0,0)",
-            showgrid=False,
-            showline=False,
-            tickangle=0,
+            gridcolor="rgba(0,0,0,0)", showgrid=False, showline=False, tickangle=0,
         ),
         yaxis=dict(
-            title="Valores (R$)",
-            color="#334155",
+            title="Valores (R$)", color="#334155",
             tickfont=dict(color="#475569", size=11),
             title_font=dict(color="#10213f", size=12),
             gridcolor="rgba(148, 163, 184, 0.14)",
@@ -1388,7 +1229,6 @@ def renderizar_dashboard():
 
     df_tabela = df_filtrado.copy()
     df_tabela[colunas["data_pagto"]] = df_tabela[colunas["data_pagto"]].dt.strftime("%d/%m/%Y")
-
     df_exibicao = obter_colunas_tabela(df_tabela)
 
     csv_file = gerar_csv(df_exibicao)
