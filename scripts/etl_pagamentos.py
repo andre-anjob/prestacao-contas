@@ -20,6 +20,7 @@ ABAS = [
     "Base G12",
     "Base - Pgto no Contratante",
     "Base Outros",
+    "RB-FORTALI"
 ]
 
 
