@@ -812,9 +812,7 @@ def renderizar_login():
                     )
                 usuario = st.text_input("Usuario", key="login_usuario", placeholder="Digite seu usuario")
                 senha = st.text_input("Senha", type="password", key="login_senha", placeholder="Digite sua senha")
-                st.markdown('<div class="botao-entrar-login">', unsafe_allow_html=True)
                 submitted = st.form_submit_button("Entrar no portal", use_container_width=True)
-                st.markdown("</div>", unsafe_allow_html=True)
 
     if submitted:
         auth = autenticar_usuario(usuario, senha)
