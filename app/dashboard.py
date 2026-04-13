@@ -1226,7 +1226,18 @@ def renderizar_dashboard():
     st.markdown("</div>", unsafe_allow_html=True)
 
     df_tabela = df_filtrado.copy()
+    
     df_tabela[colunas["data_pagto"]] = df_tabela[colunas["data_pagto"]].dt.strftime("%d/%m/%Y")
+
+    # Formata Data Venc e Data Acordo
+    for col_nome in ["Data Venc", "Data Acordo"]:
+        try:
+            col_real = resolver_coluna(df_tabela, col_nome)
+            df_tabela[col_real] = pd.to_datetime(df_tabela[col_real], errors="coerce").dt.strftime("%d/%m/%Y")
+            df_tabela[col_real] = df_tabela[col_real].fillna("")
+        except KeyError:
+            pass
+
     df_exibicao = obter_colunas_tabela(df_tabela)
 
     csv_file = gerar_csv(df_exibicao)
