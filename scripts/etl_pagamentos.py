@@ -45,7 +45,8 @@ def carregar_excel():
         print(f"Lendo aba: {aba}")
         df = pd.read_excel(ARQUIVO_EXCEL, sheet_name=aba)
         df["origem_base"] = aba
-        
+        lista_df.append(df)  # <- linha que está faltando
+
         if DEBUG:
             print(f"Colunas: {list(df.columns)}")
             print(f"Primeiras linhas:\n{df.head(2)}")
