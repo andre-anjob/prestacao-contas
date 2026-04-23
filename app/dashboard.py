@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
+from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, JsCode
 
 load_dotenv()
 
@@ -743,6 +744,99 @@ def aplicar_estilos():
                 font-size: 0.82rem !important;
             }
 
+            /* ===== AGGRID — FORÇAR MODO CLARO ===== */
+            .ag-theme-alpine {
+                --ag-background-color: #ffffff !important;
+                --ag-odd-row-background-color: #f4f6fb !important;
+                --ag-row-hover-color: #e8edf8 !important;
+                --ag-border-color: rgba(27, 60, 136, 0.12) !important;
+                --ag-secondary-border-color: rgba(27, 60, 136, 0.06) !important;
+                --ag-foreground-color: #10213f !important;
+                --ag-secondary-foreground-color: #4b5b78 !important;
+                --ag-data-color: #10213f !important;
+                --ag-header-background-color: #1b3c88 !important;
+                --ag-header-foreground-color: #f8fbff !important;
+                --ag-header-column-separator-color: rgba(255,255,255,0.15) !important;
+                --ag-header-column-resize-handle-color: rgba(255,255,255,0.3) !important;
+                --ag-control-panel-background-color: #ffffff !important;
+                --ag-subheader-background-color: #f0f3fa !important;
+                --ag-subheader-toolbar-background-color: #f0f3fa !important;
+                --ag-input-focus-border-color: #1b3c88 !important;
+                --ag-input-border-color: rgba(27, 60, 136, 0.25) !important;
+                --ag-checkbox-background-color: #ffffff !important;
+                --ag-checkbox-checked-color: #1b3c88 !important;
+                --ag-range-selection-border-color: #1b3c88 !important;
+                --ag-selected-row-background-color: #dbe4f5 !important;
+                --ag-modal-overlay-background-color: rgba(255,255,255,0.85) !important;
+                --ag-popup-shadow: 0 8px 24px rgba(15,23,42,0.12) !important;
+                color-scheme: light !important;
+            }
+
+            .ag-theme-alpine .ag-root-wrapper {
+                border-radius: 10px !important;
+                overflow: hidden;
+                border: 1px solid rgba(27, 60, 136, 0.12) !important;
+            }
+
+            .ag-theme-alpine .ag-header {
+                background: linear-gradient(135deg, #0a1f66, #1b3c88) !important;
+            }
+
+            .ag-theme-alpine .ag-header-cell-text {
+                color: #f8fbff !important;
+                font-weight: 600 !important;
+                font-size: 0.8rem !important;
+                text-transform: uppercase;
+                letter-spacing: 0.04em;
+            }
+
+            .ag-theme-alpine .ag-icon {
+                color: #f8fbff !important;
+            }
+
+            .ag-theme-alpine .ag-floating-filter .ag-icon {
+                color: #1b3c88 !important;
+            }
+
+            .ag-theme-alpine .ag-floating-filter {
+                background-color: #f0f3fa !important;
+            }
+
+            .ag-theme-alpine .ag-cell {
+                color: #10213f !important;
+                font-size: 0.84rem !important;
+            }
+
+            .ag-theme-alpine .ag-row {
+                color: #10213f !important;
+            }
+
+            .ag-theme-alpine .ag-popup,
+            .ag-theme-alpine .ag-popup-child,
+            .ag-theme-alpine .ag-filter,
+            .ag-theme-alpine .ag-menu {
+                background-color: #ffffff !important;
+                color: #10213f !important;
+            }
+
+            .ag-theme-alpine .ag-filter *,
+            .ag-theme-alpine .ag-menu *,
+            .ag-theme-alpine .ag-popup * {
+                color: #10213f !important;
+            }
+
+            .ag-theme-alpine .ag-picker-field-wrapper,
+            .ag-theme-alpine .ag-select .ag-picker-field-display,
+            .ag-theme-alpine .ag-input-field-input {
+                background-color: #ffffff !important;
+                color: #10213f !important;
+            }
+
+            .ag-theme-alpine .ag-paging-panel {
+                background-color: #ffffff !important;
+                color: #4b5b78 !important;
+                border-top: 1px solid rgba(27, 60, 136, 0.08) !important;
+            }
 
         </style>
         """,
@@ -812,7 +906,9 @@ def renderizar_login():
                     )
                 usuario = st.text_input("Usuario", key="login_usuario", placeholder="Digite seu usuario")
                 senha = st.text_input("Senha", type="password", key="login_senha", placeholder="Digite sua senha")
+                st.markdown('<div class="botao-entrar-login">', unsafe_allow_html=True)
                 submitted = st.form_submit_button("Entrar no portal", use_container_width=True)
+                st.markdown("</div>", unsafe_allow_html=True)
 
     if submitted:
         auth = autenticar_usuario(usuario, senha)
@@ -1226,18 +1322,7 @@ def renderizar_dashboard():
     st.markdown("</div>", unsafe_allow_html=True)
 
     df_tabela = df_filtrado.copy()
-    
     df_tabela[colunas["data_pagto"]] = df_tabela[colunas["data_pagto"]].dt.strftime("%d/%m/%Y")
-
-    # Formata Data Venc e Data Acordo
-    for col_nome in ["Data Venc", "Data Acordo"]:
-        try:
-            col_real = resolver_coluna(df_tabela, col_nome)
-            df_tabela[col_real] = pd.to_datetime(df_tabela[col_real], errors="coerce").dt.strftime("%d/%m/%Y")
-            df_tabela[col_real] = df_tabela[col_real].fillna("")
-        except KeyError:
-            pass
-
     df_exibicao = obter_colunas_tabela(df_tabela)
 
     csv_file = gerar_csv(df_exibicao)
@@ -1272,7 +1357,158 @@ def renderizar_dashboard():
         renderizar_acao_exportacao("CSV", "dados_filtrados.csv", csv_file, CSV_ICON_PATH, "download_csv_popup")
     st.markdown("</div>", unsafe_allow_html=True)
 
-    st.dataframe(df_exibicao, use_container_width=True, hide_index=True)
+    # ── AgGrid com filtros por coluna (estilo Excel) ─────────────────────────
+    colunas_valor_aggrid = {
+        "V. Princ", "V. Juros Contrat", "V. Juros Asses",
+        "V. Multa", "V. Honor", "V. Receb", "V. Repasse", "V. Comissão",
+    }
+
+    gb = GridOptionsBuilder.from_dataframe(df_exibicao)
+
+    gb.configure_default_column(
+        resizable=True,
+        sortable=True,
+        filter=True,
+        floatingFilter=True,
+        suppressMenu=False,
+        filterParams={"buttons": ["reset"], "closeOnApply": True},
+        cellStyle={"fontSize": "13px", "color": "#10213f"},
+    )
+
+    colunas_numericas = {
+        "V. Princ", "V. Juros Contrat", "V. Juros Asses",
+        "V. Multa", "V. Honor", "V. Receb", "V. Repasse", "V. Comissão",
+        "Dias", "Titulos Negociados", "N Pres", "Q Pres",
+    }
+
+    colunas_data = {"Data Venc", "Data Acordo", "Data Pagto"}
+
+    date_comparator = JsCode("""
+        function(filterDate, cellValue) {
+            if (!cellValue) return -1;
+            var parts = cellValue.split('/');
+            if (parts.length !== 3) return -1;
+            var cellDate = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+            if (cellDate < filterDate) return -1;
+            if (cellDate > filterDate) return 1;
+            return 0;
+        }
+    """)
+
+    for col in df_exibicao.columns:
+        if col in colunas_numericas:
+            df_exibicao[col] = pd.to_numeric(
+                df_exibicao[col].astype(str)
+                    .str.replace("R$", "", regex=False)
+                    .str.replace(".", "", regex=False)
+                    .str.replace(",", ".", regex=False)
+                    .str.strip(),
+                errors="coerce",
+            )
+            gb.configure_column(
+                col,
+                filter="agNumberColumnFilter",
+                filterParams={
+                    "buttons": ["reset"],
+                    "filterOptions": [
+                        "equals", "notEqual",
+                        "lessThan", "lessThanOrEqual",
+                        "greaterThan", "greaterThanOrEqual",
+                        "inRange", "blank", "notBlank",
+                    ],
+                },
+                valueFormatter="value != null ? 'R$ ' + value.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : ''"
+                    if col in colunas_valor_aggrid else None,
+                headerTooltip=col,
+                type=["numericColumn"],
+            )
+        elif col in colunas_data:
+            gb.configure_column(
+                col,
+                filter="agDateColumnFilter",
+                filterParams={
+                    "buttons": ["reset"],
+                    "filterOptions": [
+                        "equals", "notEqual",
+                        "lessThan", "greaterThan",
+                        "inRange", "blank", "notBlank",
+                    ],
+                    "comparator": date_comparator,
+                    "browserDatePicker": True,
+                },
+                headerTooltip=col,
+            )
+        else:
+            gb.configure_column(
+                col,
+                filter="agTextColumnFilter",
+                filterParams={"buttons": ["reset"]},
+                headerTooltip=col,
+            )
+
+    gb.configure_grid_options(
+        domLayout="normal",
+        rowHeight=36,
+        headerHeight=42,
+        floatingFiltersHeight=36,
+        suppressMovableColumns=False,
+        enableBrowserTooltips=True,
+        animateRows=True,
+        floatingFilter=True,
+        localeText={
+            "filterOoo": "Filtrar...",
+            "equals": "Igual a",
+            "notEqual": "Diferente de",
+            "lessThan": "Anterior a",
+            "greaterThan": "Posterior a",
+            "lessThanOrEqual": "Menor ou igual",
+            "greaterThanOrEqual": "Maior ou igual",
+            "inRange": "Entre períodos",
+            "inRangeStart": "De",
+            "inRangeEnd": "Até",
+            "contains": "Contém",
+            "notContains": "Não contém",
+            "startsWith": "Começa com",
+            "endsWith": "Termina com",
+            "blank": "Vazio",
+            "notBlank": "Não vazio",
+            "andCondition": "E",
+            "orCondition": "Ou",
+            "resetFilter": "Limpar filtro",
+            "applyFilter": "Aplicar",
+            "clearFilter": "Limpar",
+            "cancelFilter": "Cancelar",
+            "dateFormatOoo": "dd/mm/yyyy",
+            "page": "Página",
+            "more": "Mais",
+            "to": "até",
+            "of": "de",
+            "next": "Próxima",
+            "last": "Última",
+            "first": "Primeira",
+            "previous": "Anterior",
+            "loadingOoo": "Carregando...",
+            "noRowsToShow": "Nenhum registro encontrado",
+            "columns": "Colunas",
+            "filters": "Filtros",
+            "sortAscending": "Ordem crescente",
+            "sortDescending": "Ordem decrescente",
+        },
+    )
+
+    grid_options = gb.build()
+
+    AgGrid(
+        df_exibicao,
+        gridOptions=grid_options,
+        update_mode=GridUpdateMode.NO_UPDATE,
+        fit_columns_on_grid_load=False,
+        allow_unsafe_jscode=True,
+        enable_enterprise_modules=False,
+        theme="alpine",
+        height=520,
+        use_container_width=True,
+    )
     st.markdown("</div>", unsafe_allow_html=True)
 
 
