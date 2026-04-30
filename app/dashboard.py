@@ -112,7 +112,7 @@ COLUNAS_TABELA_DESEJADAS = [
 ]
 
 
-@st.cache_data(show_spinner=False)
+@st.cache_data(ttl=60, show_spinner=False)
 def carregar_dados():
     import os
     from sqlalchemy import create_engine
@@ -983,14 +983,14 @@ def renderizar_carregamento_dashboard():
 
 
 def preparar_dataframe():
-    if (
-        st.session_state.get("dashboard_df_preparado") is not None
-        and st.session_state.get("dashboard_colunas_preparadas") is not None
-    ):
-        return (
-            st.session_state["dashboard_df_preparado"].copy(),
-            dict(st.session_state["dashboard_colunas_preparadas"]),
-        )
+    # if (
+    #     st.session_state.get("dashboard_df_preparado") is not None
+    #     and st.session_state.get("dashboard_colunas_preparadas") is not None
+    # ):
+    #     return (
+    #         st.session_state["dashboard_df_preparado"].copy(),
+    #         dict(st.session_state["dashboard_colunas_preparadas"]),
+    #     )
 
     try:
         df = carregar_dados()
