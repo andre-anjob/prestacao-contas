@@ -170,9 +170,11 @@ def autenticar_usuario(usuario, senha):
             """
             SELECT id, usuario, contratante, tipo_usuario, primeiro_acesso, senha_hash
             FROM usuarios
-            WHERE TRIM(usuario) = TRIM(%s)
+            WHERE TRIM(login_simplificado) = TRIM(%s)
+               OR TRIM(usuario) = TRIM(%s)
+            LIMIT 1
             """,
-            (usuario,),
+            (usuario, usuario),
         )
         resultado = cursor.fetchone()
 
@@ -246,3 +248,4 @@ def resolver_coluna(df, *nomes):
             return coluna
 
     raise KeyError(f"Coluna nao encontrada entre as opcoes: {nomes}")
+    
