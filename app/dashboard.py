@@ -239,7 +239,8 @@ def aplicar_estilos():
                 gap: 10px;
                 box-shadow: 0 6px 12px rgba(0, 0, 0, 0.16);
                 margin-top: 2px;
-                margin-left: 4px;
+                margin-left: auto;
+                margin-right: auto;
             }
 
             .bloco-logos-dashboard,
@@ -1143,7 +1144,9 @@ def renderizar_topo(data_atualizacao=None):
         data_str = f'<span class="topo-badge">Dados de {data_atualizacao}</span>'
 
     with col_logo:
+        st.markdown('<div style="display:flex; justify-content:center;">', unsafe_allow_html=True)
         renderizar_bloco_logos("bloco-logos-dashboard")
+        st.markdown('</div>', unsafe_allow_html=True)
 
     with col_titulo:
         st.markdown(
@@ -1180,7 +1183,7 @@ def chave_checkbox_contratante(contratante):
 
 
 def renderizar_filtro_contratantes(contratantes):
-    st.markdown('<div style="color:#10213f; font-weight:700; margin-bottom:0.6rem; font-size:0.85rem; text-transform:uppercase; letter-spacing:0.05em;">Contratantes</div>', unsafe_allow_html=True)
+    st.markdown('<div style="color:#10213f; font-weight:700; margin-bottom:1rem; font-size:0.85rem; text-transform:uppercase; letter-spacing:0.05em;">Contratantes</div>', unsafe_allow_html=True)
 
     contratantes_cache = tuple(contratantes)
     if st.session_state.get("contratantes_disponiveis_cache") != contratantes_cache:
