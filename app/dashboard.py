@@ -839,6 +839,33 @@ def aplicar_estilos():
                 border-top: 1px solid rgba(27, 60, 136, 0.08) !important;
             }
 
+            # ===== BOTOES DE DOWNLOAD (exportacao) =====
+            [data-testid="stDownloadButton"] > button {
+                background: linear-gradient(135deg, #0a1f66, #1b3c88) !important;
+                color: #f8fbff !important;
+                border: 1px solid rgba(100, 149, 255, 0.2) !important;
+                font-weight: 600 !important;
+                border-radius: 10px !important;
+                transition: opacity 0.2s ease !important;
+                min-height: 2.2rem !important;
+                height: 2.2rem !important;
+                padding: 0 1rem !important;
+                font-size: 0.85rem !important;
+                width: 100% !important;
+            }
+
+            [data-testid="stDownloadButton"] > button:hover,
+            [data-testid="stDownloadButton"] > button:focus,
+            [data-testid="stDownloadButton"] > button:active {
+                opacity: 0.85 !important;
+                background: linear-gradient(135deg, #0a1f66, #1b3c88) !important;
+                color: #f8fbff !important;
+            }
+
+            [data-testid="stDownloadButton"] > button * {
+                color: #f8fbff !important;
+            }
+
         </style>
         """,
         unsafe_allow_html=True,
