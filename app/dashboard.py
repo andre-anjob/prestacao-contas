@@ -926,19 +926,135 @@ def renderizar_login():
 
 
 def renderizar_primeiro_acesso():
-    st.title("Troca obrigatoria de senha")
-    st.info("Defina uma nova senha para continuar.")
+    st.markdown('<div class="login-stage-marker"></div>', unsafe_allow_html=True)
 
-    with st.form("troca_senha_form"):
-        nova_senha = st.text_input("Nova senha", type="password")
-        confirmar_senha = st.text_input("Confirmar nova senha", type="password")
-        submitted = st.form_submit_button("Salvar nova senha", use_container_width=True)
+    st.markdown(
+        """
+        <style>
+        .troca-senha-shell {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem 1rem;
+        }
+        .troca-senha-card {
+            width: 100%;
+            max-width: 440px;
+            margin: 0 auto;
+        }
+        .troca-senha-icon {
+            width: 52px; height: 52px;
+            border-radius: 14px;
+            background: rgba(255,255,255,0.10);
+            display: flex; align-items: center; justify-content: center;
+            margin-bottom: 1.1rem;
+        }
+        .troca-senha-titulo {
+            color: #f8fbff;
+            font-size: 1.35rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            margin: 0 0 0.3rem 0;
+        }
+        .troca-senha-subtitulo {
+            color: rgba(180,210,255,0.75);
+            font-size: 0.875rem;
+            margin: 0 0 1.5rem 0;
+            line-height: 1.55;
+        }
+        .troca-senha-requisitos {
+            background: rgba(255,255,255,0.07);
+            border-radius: 10px;
+            padding: 0.75rem 1rem;
+            margin-bottom: 0.5rem;
+        }
+        .troca-senha-req-titulo {
+            color: rgba(180,210,255,0.85);
+            font-size: 0.72rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-bottom: 0.5rem;
+        }
+        .troca-senha-req-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: rgba(180,210,255,0.65);
+            font-size: 0.8rem;
+            margin-bottom: 0.22rem;
+            line-height: 1.4;
+        }
+        .troca-senha-req-dot {
+            width: 5px; height: 5px;
+            border-radius: 50%;
+            background: rgba(180,210,255,0.4);
+            flex-shrink: 0;
+        }
+        .troca-senha-rodape {
+            text-align: center;
+            margin-top: 0.9rem;
+            color: rgba(180,210,255,0.35);
+            font-size: 0.72rem;
+        }
+        </style>
+        <div class="troca-senha-shell">
+            <div class="troca-senha-card">
+                <div class="troca-senha-icon">
+                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none"
+                        stroke="rgba(180,210,255,0.9)" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                    </svg>
+                </div>
+                <p class="troca-senha-titulo">Defina sua senha de acesso</p>
+                <p class="troca-senha-subtitulo">
+                    Por segurança, é necessário criar uma senha pessoal antes de continuar.
+                </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    _, col_form, _ = st.columns([1.15, 0.7, 1.15], gap="large")
+
+    with col_form:
+        with st.form("troca_senha_form"):
+            nova_senha = st.text_input("Nova senha", type="password", placeholder="Crie uma senha segura")
+            confirmar_senha = st.text_input("Confirmar senha", type="password", placeholder="Repita a senha")
+
+            st.markdown(
+                """
+                <div class="troca-senha-requisitos">
+                    <div class="troca-senha-req-titulo">Requisitos da senha</div>
+                    <div class="troca-senha-req-item">
+                        <div class="troca-senha-req-dot"></div>Mínimo de 8 caracteres
+                    </div>
+                    <div class="troca-senha-req-item">
+                        <div class="troca-senha-req-dot"></div>Pelo menos uma letra maiúscula
+                    </div>
+                    <div class="troca-senha-req-item">
+                        <div class="troca-senha-req-dot"></div>Pelo menos um número
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+            submitted = st.form_submit_button("Salvar e entrar no portal", use_container_width=True)
+
+        st.markdown(
+            '<div class="troca-senha-rodape">SmartCob · Anjob Assessoria</div>',
+            unsafe_allow_html=True,
+        )
 
     if not submitted:
         return
 
     if nova_senha != confirmar_senha:
-        st.error("As senhas informadas nao coincidem.")
+        st.error("As senhas informadas não coincidem.")
         return
 
     senha_valida, mensagem = validar_nova_senha(nova_senha)
@@ -952,13 +1068,12 @@ def renderizar_primeiro_acesso():
         primeiro_acesso=False,
     )
     if not linhas_afetadas:
-        st.error("Nao foi possivel atualizar a senha do usuario atual.")
+        st.error("Não foi possível atualizar a senha do usuário atual.")
         return
 
     st.session_state["primeiro_acesso"] = False
     st.success("Senha atualizada com sucesso.")
     st.rerun()
-
 
 def renderizar_carregamento_dashboard():
     st.markdown(
