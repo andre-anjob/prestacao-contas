@@ -861,6 +861,13 @@ def aplicar_estilos():
                 color: #f8fbff !important;
             }
 
+            /* ===== EXPANDER — texto do summary sempre visivel ===== */
+            div[data-testid="stExpander"] summary p,
+            div[data-testid="stExpander"] summary span {
+                color: #f8fbff !important;
+                opacity: 1 !important;
+            }
+
         </style>
         """,
         unsafe_allow_html=True,
