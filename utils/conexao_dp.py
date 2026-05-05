@@ -166,9 +166,11 @@ def autenticar_usuario(usuario, senha):
 
     with conectar_banco() as conn:
         cursor = conn.cursor()
+
+        # Busca o registro principal para autenticação
         cursor.execute(
             """
-            SELECT id, usuario, contratante, tipo_usuario, primeiro_acesso, senha_hash
+            SELECT id, usuario, contratante, tipo_usuario, primeiro_acesso, senha_hash, login_simplificado
             FROM usuarios
             WHERE TRIM(login_simplificado) = TRIM(%s)
                OR TRIM(usuario) = TRIM(%s)
@@ -181,7 +183,7 @@ def autenticar_usuario(usuario, senha):
         if not resultado:
             return None
 
-        usuario_id, nome_usuario, contratante, tipo_usuario, primeiro_acesso, senha_hash = resultado
+        usuario_id, nome_usuario, contratante, tipo_usuario, primeiro_acesso, senha_hash, login_simplificado = resultado
 
         if not verificar_senha(senha, senha_hash):
             return None
@@ -192,14 +194,27 @@ def autenticar_usuario(usuario, senha):
                 (gerar_hash_seguro(senha), usuario_id),
             )
 
+        # Busca todos os contratantes vinculados ao login_simplificado
+        contratantes_vinculados = [contratante]
+        if login_simplificado:
+            cursor.execute(
+                """
+                SELECT DISTINCT contratante
+                FROM usuarios
+                WHERE TRIM(login_simplificado) = TRIM(%s)
+                """,
+                (login_simplificado,),
+            )
+            contratantes_vinculados = [row[0] for row in cursor.fetchall()]
+
         return {
             "id": usuario_id,
             "usuario": nome_usuario,
             "contratante": contratante,
+            "contratantes_vinculados": contratantes_vinculados,
             "tipo_usuario": tipo_usuario,
             "primeiro_acesso": bool(primeiro_acesso),
         }
-
 
 def carregar_pagamentos():
     with conectar_banco() as conn:

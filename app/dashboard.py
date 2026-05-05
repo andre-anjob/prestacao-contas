@@ -136,6 +136,7 @@ def inicializar_sessao():
     st.session_state.setdefault("busca_contratante", "")
     st.session_state.setdefault("contratantes_selecionados", [])
     st.session_state.setdefault("contratantes_disponiveis_cache", ())
+    st.session_state.setdefault("contratantes_vinculados", [])
 
 
 def obter_colunas_tabela(df):
@@ -952,6 +953,7 @@ def renderizar_login():
             st.session_state["contratante"] = auth["contratante"]
             st.session_state["tipo_usuario"] = auth["tipo_usuario"]
             st.session_state["primeiro_acesso"] = auth["primeiro_acesso"]
+            st.session_state["contratantes_vinculados"] = auth["contratantes_vinculados"]
             st.session_state["mostrar_carregamento_dashboard"] = True
             st.rerun()
         else:
@@ -1333,7 +1335,8 @@ def renderizar_dashboard():
         return
 
     if st.session_state["tipo_usuario"] != "admin":
-        df = df[df[colunas["contratante"]] == st.session_state["contratante"]].copy()
+        vinculados = st.session_state.get("contratantes_vinculados") or [st.session_state["contratante"]]
+        df = df[df[colunas["contratante"]].isin(vinculados)].copy()
 
     if df.empty:
         st.warning("Nao ha pagamentos disponiveis para o usuario logado.")
