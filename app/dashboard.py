@@ -862,10 +862,13 @@ def aplicar_estilos():
             }
 
             /* ===== EXPANDER — texto do summary sempre visivel ===== */
-            div[data-testid="stExpander"] summary p,
-            div[data-testid="stExpander"] summary span {
+            div[data-testid="stExpander"] details summary,
+            div[data-testid="stExpander"] details summary p,
+            div[data-testid="stExpander"] details summary span,
+            div[data-testid="stExpander"] details > summary > * {
                 color: #f8fbff !important;
                 opacity: 1 !important;
+                visibility: visible !important;
             }
 
         </style>
