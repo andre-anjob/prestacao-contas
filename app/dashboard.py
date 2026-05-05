@@ -931,24 +931,12 @@ def renderizar_primeiro_acesso():
     st.markdown(
         """
         <style>
-        .troca-senha-shell {
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 2rem 1rem;
-        }
-        .troca-senha-card {
-            width: 100%;
-            max-width: 440px;
-            margin: 0 auto;
-        }
         .troca-senha-icon {
             width: 52px; height: 52px;
             border-radius: 14px;
             background: rgba(255,255,255,0.10);
             display: flex; align-items: center; justify-content: center;
-            margin-bottom: 1.1rem;
+            margin: 2rem auto 1.1rem auto;
         }
         .troca-senha-titulo {
             color: #f8fbff;
@@ -956,12 +944,14 @@ def renderizar_primeiro_acesso():
             font-weight: 700;
             letter-spacing: -0.02em;
             margin: 0 0 0.3rem 0;
+            text-align: center;
         }
         .troca-senha-subtitulo {
             color: rgba(180,210,255,0.75);
             font-size: 0.875rem;
-            margin: 0 0 1.5rem 0;
+            margin: 0 0 1.2rem 0;
             line-height: 1.55;
+            text-align: center;
         }
         .troca-senha-requisitos {
             background: rgba(255,255,255,0.07);
@@ -999,21 +989,6 @@ def renderizar_primeiro_acesso():
             font-size: 0.72rem;
         }
         </style>
-        <div class="troca-senha-shell">
-            <div class="troca-senha-card">
-                <div class="troca-senha-icon">
-                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none"
-                        stroke="rgba(180,210,255,0.9)" stroke-width="2"
-                        stroke-linecap="round" stroke-linejoin="round">
-                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                    </svg>
-                </div>
-                <p class="troca-senha-titulo">Defina sua senha de acesso</p>
-                <p class="troca-senha-subtitulo">
-                    Por segurança, é necessário criar uma senha pessoal antes de continuar.
-                </p>
-        </div>
         """,
         unsafe_allow_html=True,
     )
@@ -1021,6 +996,24 @@ def renderizar_primeiro_acesso():
     _, col_form, _ = st.columns([1.15, 0.7, 1.15], gap="large")
 
     with col_form:
+        st.markdown(
+            """
+            <div class="troca-senha-icon">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none"
+                    stroke="rgba(180,210,255,0.9)" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                </svg>
+            </div>
+            <p class="troca-senha-titulo">Defina sua senha de acesso</p>
+            <p class="troca-senha-subtitulo">
+                Por segurança, é necessário criar uma senha pessoal antes de continuar.
+            </p>
+            """,
+            unsafe_allow_html=True,
+        )
+
         with st.form("troca_senha_form"):
             nova_senha = st.text_input("Nova senha", type="password", placeholder="Crie uma senha segura")
             confirmar_senha = st.text_input("Confirmar senha", type="password", placeholder="Repita a senha")
