@@ -88,6 +88,7 @@ def gerar_pdf(df):
 
 
 COLUNAS_TABELA_DESEJADAS = [
+    ("ID", ("ID", "Id", "id",)),
     ("Contratante", ("Contratante",)),
     ("Tipo de Titulo", ("Tipo de Titulo",)),
     ("Tipo de Acordo", ("Tipo de Acordo",)),
@@ -1522,6 +1523,7 @@ def renderizar_dashboard():
     )
 
     colunas_numericas = {
+        "ID",
         "V. Princ", "V. Juros Contrat", "V. Juros Asses",
         "V. Multa", "V. Honor", "V. Receb", "V. Repasse", "V. Comissão",
         "Dias", "Titulos Negociados", "N Pres", "Q Pres",
