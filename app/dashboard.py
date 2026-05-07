@@ -88,11 +88,11 @@ def gerar_pdf(df):
 
 
 COLUNAS_TABELA_DESEJADAS = [
-    ("ID", ("ID", "Id", "id",)),
     ("Contratante", ("Contratante",)),
     ("Tipo de Titulo", ("Tipo de Titulo",)),
     ("Tipo de Acordo", ("Tipo de Acordo",)),
     ("CPF", ("CPF",)),
+    ("ID", ("ID", "Id", "id",)),
     ("Devedor", ("Devedor",)),
     ("Titulos Negociados", ("Titulos Negociados",)),
     ("Data Venc", ("Data Venc",)),
