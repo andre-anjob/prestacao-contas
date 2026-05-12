@@ -56,9 +56,31 @@ def gerar_csv(df):
 
 
 def gerar_excel(df):
+    df_export = df.copy()
+
+    # Colunas de data — converte para datetime e formata como dd/mm/yyyy
+    colunas_data = ["Data Venc", "Data Acordo", "Data Pagto"]  # ajuste os nomes conforme seu df
+    for col in colunas_data:
+        if col in df_export.columns:
+            df_export[col] = pd.to_datetime(df_export[col], errors="coerce").dt.strftime("%d/%m/%Y")
+
+    # Colunas monetárias — remove R$, pontos de milhar e converte para float
+    colunas_valor = ["V. Princ", "V. Juros Contrat", "V. Juros Asses", "V. Multa", "V. Honor", "V. Receb", "V. Repasse", "V. Comissão"]  # ajuste os nomes conforme seu df
+    for col in colunas_valor:
+        if col in df_export.columns:
+            df_export[col] = (
+                df_export[col]
+                .astype(str)
+                .str.replace("R$", "", regex=False)
+                .str.replace(".", "", regex=False)
+                .str.replace(",", ".", regex=False)
+                .str.strip()
+            )
+            df_export[col] = pd.to_numeric(df_export[col], errors="coerce")
+
     output = BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        df.to_excel(writer, index=False)
+        df_export.to_excel(writer, index=False)
     return output.getvalue()
 
 
