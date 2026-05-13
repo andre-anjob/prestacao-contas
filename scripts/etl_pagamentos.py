@@ -132,7 +132,7 @@ def salvar_no_supabase(df):
     conn.autocommit = True
     cursor = conn.cursor()
 
-    cursor.execute("DELETE FROM pagamentos")
+    cursor.execute("TRUNCATE TABLE pagamentos RESTART IDENTITY")
     print("Dados anteriores removidos.")
 
     colunas = list(df.columns)
