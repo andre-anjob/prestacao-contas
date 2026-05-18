@@ -55,22 +55,25 @@ def gerar_csv(df):
     return df.to_csv(index=False, sep=";", encoding="utf-8-sig").encode("utf-8-sig")
 
 
-def gerar_excel(df):
+def gerar_excel(df, contratante="", data_inicio=None, data_fim=None):
+    from openpyxl import Workbook
+    from openpyxl.drawing.image import Image as XLImage
+    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+    import os
+
     df_export = df.copy()
 
-    # Colunas de data — converte para datetime e formata como dd/mm/yyyy
-    colunas_data = ["Data Venc", "Data Acordo", "Data Pagto"]  # ajuste os nomes conforme seu df
+    colunas_data = ["Data Venc", "Data Acordo", "Data Pagto"]
     for col in colunas_data:
         if col in df_export.columns:
             df_export[col] = pd.to_datetime(df_export[col], errors="coerce").dt.strftime("%d/%m/%Y")
 
-    # Colunas monetárias — remove R$, pontos de milhar e converte para float
-    colunas_valor = ["V. Princ", "V. Juros Contrat", "V. Juros Asses", "V. Multa", "V. Honor", "V. Receb", "V. Repasse", "V. Comissão"]  # ajuste os nomes conforme seu df
+    colunas_valor = ["V. Princ", "V. Juros Contrat", "V. Juros Asses", "V. Multa",
+                     "V. Honor", "V. Receb", "V. Repasse", "V. Comissão"]
     for col in colunas_valor:
         if col in df_export.columns:
             df_export[col] = (
-                df_export[col]
-                .astype(str)
+                df_export[col].astype(str)
                 .str.replace("R$", "", regex=False)
                 .str.replace(".", "", regex=False)
                 .str.replace(",", ".", regex=False)
@@ -78,9 +81,116 @@ def gerar_excel(df):
             )
             df_export[col] = pd.to_numeric(df_export[col], errors="coerce")
 
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Recebimentos"
+
+    # ── Inserir logo ──────────────────────────────────────────────────────────
+    logo_path = encontrar_arquivo_asset("logo_excel.png")
+    if logo_path and os.path.exists(logo_path):
+        img = XLImage(logo_path)
+        img.width = 160
+        img.height = 55
+        img.anchor = "A1"
+        ws.add_image(img)
+
+    # Altura das linhas do cabeçalho
+    ws.row_dimensions[1].height = 42
+    ws.row_dimensions[2].height = 18
+    ws.row_dimensions[3].height = 18
+    ws.row_dimensions[4].height = 10  # espaço separador
+
+    # ── Textos do cabeçalho (coluna D em diante para não sobrepor a logo) ────
+    cor_fundo = "001040"
+    cor_texto = "FFFFFF"
+    fill_header = PatternFill("solid", fgColor=cor_fundo)
+
+    # Monta strings do cabeçalho
+    nome_contratante = contratante.upper() if contratante else "TODOS OS CONTRATANTES"
+    if data_inicio and data_fim:
+        periodo_str = f"PERÍODO: {data_inicio.strftime('%d/%m/%Y')} A {data_fim.strftime('%d/%m/%Y')}"
+    else:
+        periodo_str = ""
+
+    # Título principal — coluna D, linha 1
+    cel_titulo = ws["D1"]
+    cel_titulo.value = f"RELATÓRIO DE RECEBIMENTOS - {nome_contratante}"
+    cel_titulo.font = Font(name="Arial", bold=True, size=13, color=cor_texto)
+    cel_titulo.alignment = Alignment(horizontal="left", vertical="center")
+
+    # Período — coluna D, linha 2
+    if periodo_str:
+        cel_periodo = ws["D2"]
+        cel_periodo.value = periodo_str
+        cel_periodo.font = Font(name="Arial", size=10, color=cor_texto)
+        cel_periodo.alignment = Alignment(horizontal="left", vertical="center")
+
+    # Pinta o fundo das linhas 1-3 (colunas A até última coluna dos dados)
+    n_colunas = len(df_export.columns)
+    from openpyxl.utils import get_column_letter
+    ultima_col = get_column_letter(max(n_colunas, 10))
+    for linha in range(1, 4):
+        for col_idx in range(1, max(n_colunas, 10) + 1):
+            ws.cell(row=linha, column=col_idx).fill = fill_header
+
+    # ── Cabeçalho da tabela — linha 5 ────────────────────────────────────────
+    linha_header = 5
+    fill_col_header = PatternFill("solid", fgColor="1B3C88")
+    borda = Border(
+        bottom=Side(style="thin", color="CCCCCC"),
+        right=Side(style="thin", color="CCCCCC"),
+    )
+
+    for col_idx, nome_col in enumerate(df_export.columns, start=1):
+        cel = ws.cell(row=linha_header, column=col_idx, value=nome_col)
+        cel.font = Font(name="Arial", bold=True, size=10, color="FFFFFF")
+        cel.fill = fill_col_header
+        cel.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        cel.border = borda
+    ws.row_dimensions[linha_header].height = 36
+
+    # ── Dados — a partir da linha 6 ──────────────────────────────────────────
+    fill_par = PatternFill("solid", fgColor="F0F3FA")
+    formato_moeda = '#.##0,00'
+
+    for row_idx, row in enumerate(df_export.itertuples(index=False), start=linha_header + 1):
+        fill_linha = fill_par if row_idx % 2 == 0 else None
+        for col_idx, valor in enumerate(row, start=1):
+            cel = ws.cell(row=row_idx, column=col_idx, value=valor)
+            cel.font = Font(name="Arial", size=9)
+            cel.alignment = Alignment(vertical="center")
+            cel.border = Border(
+                bottom=Side(style="thin", color="EEEEEE"),
+                right=Side(style="thin", color="EEEEEE"),
+            )
+            if fill_linha:
+                cel.fill = fill_linha
+            # Formata colunas monetárias
+            nome_col = df_export.columns[col_idx - 1]
+            if nome_col in colunas_valor:
+                cel.number_format = u'_-R$\xa0#.##0,00_-'
+        ws.row_dimensions[row_idx].height = 22
+
+    # ── Largura das colunas ───────────────────────────────────────────────────
+    larguras = {
+        "Contratante": 30, "Devedor": 28, "CPF": 16, "Tipo de Titulo": 16,
+        "Tipo de Acordo": 16, "Tipo de Baixa": 16, "ID": 10,
+        "Data Venc": 13, "Data Acordo": 13, "Data Pagto": 13,
+        "V. Princ": 15, "V. Juros Contrat": 16, "V. Juros Asses": 16,
+        "V. Multa": 13, "V. Honor": 13, "V. Receb": 15,
+        "V. Repasse": 15, "V. Comissão": 15,
+    }
+    for col_idx, nome_col in enumerate(df_export.columns, start=1):
+        letra = get_column_letter(col_idx)
+        ws.column_dimensions[letra].width = larguras.get(nome_col, 14)
+
+    # Largura das colunas A-C para acomodar a logo
+    ws.column_dimensions["A"].width = 6
+    ws.column_dimensions["B"].width = 6
+    ws.column_dimensions["C"].width = 12
+
     output = BytesIO()
-    with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        df_export.to_excel(writer, index=False)
+    wb.save(output)
     return output.getvalue()
 
 
@@ -1495,7 +1605,8 @@ def renderizar_dashboard():
     df_exibicao = obter_colunas_tabela(df_tabela)
 
     csv_file = gerar_csv(df_exibicao)
-    excel_file = gerar_excel(df_exibicao)
+    contratante_label = ", ".join(contratantes_efetivos) if len(contratantes_efetivos) <= 2 else f"{len(contratantes_efetivos)} contratantes"
+    excel_file = gerar_excel(df_exibicao, contratante=contratante_label, data_inicio=data_inicio, data_fim=data_fim)
     pdf_file = gerar_pdf(df_exibicao)
 
     st.markdown('<div class="tabela-card">', unsafe_allow_html=True)
