@@ -1602,6 +1602,14 @@ def renderizar_dashboard():
 
     df_tabela = df_filtrado.copy()
     df_tabela[colunas["data_pagto"]] = df_tabela[colunas["data_pagto"]].dt.strftime("%d/%m/%Y")
+    
+    for col_data in ["Data Venc", "Data Acordo"]:
+        try:
+            col_real = resolver_coluna(df_tabela, col_data)
+            df_tabela[col_real] = pd.to_datetime(df_tabela[col_real], errors="coerce").dt.strftime("%d/%m/%Y")
+        except KeyError:
+            pass
+
     df_exibicao = obter_colunas_tabela(df_tabela)
 
     csv_file = gerar_csv(df_exibicao)
