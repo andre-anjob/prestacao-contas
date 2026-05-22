@@ -1798,9 +1798,12 @@ def renderizar_dashboard():
     linha_total["Contratante"] = "TOTAL"
 
     for col in colunas_somar:
-        col_encontrada = next((c for c in df_exibicao.columns if normalizar_texto(c) == normalizar_texto(col)), None)
+        col_encontrada = next(
+            (c for c in df_exibicao.columns if normalizar_texto(c) == normalizar_texto(col)),
+            None
+        )
         if col_encontrada:
-            linha_total[col_encontrada] = pd.to_numeric(
+            soma = pd.to_numeric(
                 df_exibicao[col_encontrada].astype(str)
                     .str.replace("R$", "", regex=False)
                     .str.replace(".", "", regex=False)
@@ -1808,6 +1811,7 @@ def renderizar_dashboard():
                     .str.strip(),
                 errors="coerce"
             ).sum()
+            linha_total[col_encontrada] = float(soma)  # converte numpy.float64 → float nativo
 
     grid_options["pinnedBottomRowData"] = [linha_total]
 
