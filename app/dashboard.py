@@ -249,7 +249,7 @@ COLUNAS_TABELA_DESEJADAS = [
 ]
 
 
-@st.cache_data(ttl=60, show_spinner=False)
+@st.cache_data(ttl=600, show_spinner=False)
 def carregar_dados():
     import os
     from sqlalchemy import create_engine
