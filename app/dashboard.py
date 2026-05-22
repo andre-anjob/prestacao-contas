@@ -66,7 +66,9 @@ def gerar_excel(df, contratante="", data_inicio=None, data_fim=None):
     colunas_data = ["Data Venc", "Data Acordo", "Data Pagto"]
     for col in colunas_data:
         if col in df_export.columns:
-            df_export[col] = pd.to_datetime(df_export[col], errors="coerce").dt.strftime("%d/%m/%Y")
+            df_export[col] = pd.to_datetime(
+                df_export[col], format="%d/%m/%Y", errors="coerce"
+            )
 
     colunas_valor = ["V. Princ", "V. Juros Contrat", "V. Juros Asses", "V. Multa",
                      "V. Honor", "V. Receb", "V. Repasse", "V. Comissão"]
@@ -169,6 +171,8 @@ def gerar_excel(df, contratante="", data_inicio=None, data_fim=None):
             nome_col = df_export.columns[col_idx - 1]
             if nome_col in colunas_valor:
                 cel.number_format = u'_-R$\xa0#.##0,00_-'
+            elif nome_col in ["Data Venc", "Data Acordo", "Data Pagto"]:
+                cel.number_format = "DD/MM/YYYY"
         ws.row_dimensions[row_idx].height = 22
 
     # ── Largura das colunas ───────────────────────────────────────────────────
@@ -1602,7 +1606,7 @@ def renderizar_dashboard():
 
     df_tabela = df_filtrado.copy()
     df_tabela[colunas["data_pagto"]] = df_tabela[colunas["data_pagto"]].dt.strftime("%d/%m/%Y")
-    
+
     for col_data in ["Data Venc", "Data Acordo"]:
         try:
             col_real = resolver_coluna(df_tabela, col_data)
