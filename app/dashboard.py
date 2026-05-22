@@ -1794,13 +1794,14 @@ def renderizar_dashboard():
     colunas_somar = ["V. Princ", "V. Juros Contrat", "V. Juros Asses",
                     "V. Multa", "V. Honor", "V. Receb", "V. Repasse", "V. Comissão"]
 
-    linha_total = {col: None for col in df_exibicao.columns}
+    linha_total = {col: "" for col in df_exibicao.columns}
     linha_total["Contratante"] = "TOTAL"
 
     for col in colunas_somar:
-        if col in df_exibicao.columns:
-            linha_total[col] = pd.to_numeric(
-                df_exibicao[col].astype(str)
+        col_encontrada = next((c for c in df_exibicao.columns if normalizar_texto(c) == normalizar_texto(col)), None)
+        if col_encontrada:
+            linha_total[col_encontrada] = pd.to_numeric(
+                df_exibicao[col_encontrada].astype(str)
                     .str.replace("R$", "", regex=False)
                     .str.replace(".", "", regex=False)
                     .str.replace(",", ".", regex=False)
