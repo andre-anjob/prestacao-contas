@@ -1710,8 +1710,12 @@ def renderizar_dashboard():
                         "inRange", "blank", "notBlank",
                     ],
                 },
-                valueFormatter="value != null ? (col in colunas_valor_aggrid ? 'R$ ' + value.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : value.toLocaleString('pt-BR', {maximumFractionDigits: 0})) : ''"
-                    if col in colunas_valor_aggrid or col in {"Dias", "Titulos Negociados", "N Pres", "Q Pres", "ID"}
+                valueFormatter="value != null ? String(Math.round(value)) : ''"
+                    if col == "Dias"
+                    else "value != null ? 'R$ ' + value.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : ''"
+                    if col in colunas_valor_aggrid
+                    else "value != null ? value.toLocaleString('pt-BR', {maximumFractionDigits: 0}) : ''"
+                    if col in {"Titulos Negociados", "N Pres", "Q Pres", "ID"}
                     else None,
                 headerTooltip=col,
                 type=["numericColumn"],
