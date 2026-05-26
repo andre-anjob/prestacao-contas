@@ -1687,16 +1687,18 @@ def renderizar_dashboard():
             return 0;
         }
     """)
-
     for col in df_exibicao.columns:
         if col in colunas_numericas:
-            df_exibicao[col] = pd.to_numeric(
-                df_exibicao[col].astype(str)
-                    .str.replace("R$", "", regex=False)
-                    .str.replace(".", "", regex=False)
-                    .str.replace(",", ".", regex=False)
-                    .str.strip(),
-                errors="coerce",
+            if col == "Dias":
+                df_exibicao[col] = pd.to_numeric(df_exibicao[col], errors="coerce").astype("Int64")
+            else:
+                df_exibicao[col] = pd.to_numeric(
+                    df_exibicao[col].astype(str)
+                        .str.replace("R$", "", regex=False)
+                        .str.replace(".", "", regex=False)
+                        .str.replace(",", ".", regex=False)
+                        .str.strip(),
+                    errors="coerce",
             )
             gb.configure_column(
                 col,
