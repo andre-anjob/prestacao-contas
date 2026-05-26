@@ -961,7 +961,7 @@ def aplicar_estilos():
             .ag-theme-alpine .ag-filter *,
             .ag-theme-alpine .ag-menu *,
             .ag-theme-alpine .ag-popup * {
-                color: #10213f !important;
+                color: #10213f !important;l
             }
 
             .ag-theme-alpine .ag-picker-field-wrapper,
@@ -1710,8 +1710,9 @@ def renderizar_dashboard():
                         "inRange", "blank", "notBlank",
                     ],
                 },
-                valueFormatter="value != null ? 'R$ ' + value.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : ''"
-                    if col in colunas_valor_aggrid else None,
+                valueFormatter="value != null ? (col in colunas_valor_aggrid ? 'R$ ' + value.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : value.toLocaleString('pt-BR', {maximumFractionDigits: 0})) : ''"
+                    if col in colunas_valor_aggrid or col in {"Dias", "Titulos Negociados", "N Pres", "Q Pres", "ID"}
+                    else None,
                 headerTooltip=col,
                 type=["numericColumn"],
             )
