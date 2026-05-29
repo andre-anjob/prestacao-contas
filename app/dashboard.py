@@ -1967,15 +1967,12 @@ def renderizar_dashboard():
             None
         )
         if col_encontrada:
-            soma = pd.to_numeric(
-                df_exibicao[col_encontrada].astype(str)
-                    .str.replace("R$", "", regex=False)
-                    .str.replace(".", "", regex=False)
-                    .str.replace(",", ".", regex=False)
-                    .str.strip(),
-                errors="coerce"
-            ).sum()
-            linha_total[col_encontrada] = float(soma)
+            try:
+                col_real = resolver_coluna(df_filtrado, col, col_encontrada)
+                soma = pd.to_numeric(df_filtrado[col_real], errors="coerce").sum()
+                linha_total[col_encontrada] = float(soma)
+            except KeyError:
+                pass
 
     grid_options["pinnedBottomRowData"] = [linha_total]
 
