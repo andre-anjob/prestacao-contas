@@ -87,7 +87,6 @@ def gerar_excel(df, contratante="", data_inicio=None, data_fim=None):
     ws = wb.active
     ws.title = "Recebimentos"
 
-    # ── Inserir logo ──────────────────────────────────────────────────────────
     logo_path = encontrar_arquivo_asset("logo_excel.png")
     if logo_path and os.path.exists(logo_path):
         img = XLImage(logo_path)
@@ -96,38 +95,32 @@ def gerar_excel(df, contratante="", data_inicio=None, data_fim=None):
         img.anchor = "A1"
         ws.add_image(img)
 
-    # Altura das linhas do cabeçalho
     ws.row_dimensions[1].height = 42
     ws.row_dimensions[2].height = 18
     ws.row_dimensions[3].height = 18
-    ws.row_dimensions[4].height = 10  # espaço separador
+    ws.row_dimensions[4].height = 10
 
-    # ── Textos do cabeçalho (coluna D em diante para não sobrepor a logo) ────
     cor_fundo = "001040"
     cor_texto = "FFFFFF"
     fill_header = PatternFill("solid", fgColor=cor_fundo)
 
-    # Monta strings do cabeçalho
     nome_contratante = contratante.upper() if contratante else "TODOS OS CONTRATANTES"
     if data_inicio and data_fim:
         periodo_str = f"PERÍODO: {data_inicio.strftime('%d/%m/%Y')} A {data_fim.strftime('%d/%m/%Y')}"
     else:
         periodo_str = ""
 
-    # Título principal — coluna D, linha 1
     cel_titulo = ws["D1"]
     cel_titulo.value = f"RELATÓRIO DE RECEBIMENTOS - {nome_contratante}"
     cel_titulo.font = Font(name="Arial", bold=True, size=13, color=cor_texto)
     cel_titulo.alignment = Alignment(horizontal="left", vertical="center")
 
-    # Período — coluna D, linha 2
     if periodo_str:
         cel_periodo = ws["D2"]
         cel_periodo.value = periodo_str
         cel_periodo.font = Font(name="Arial", size=10, color=cor_texto)
         cel_periodo.alignment = Alignment(horizontal="left", vertical="center")
 
-    # Pinta o fundo das linhas 1-3 (colunas A até última coluna dos dados)
     n_colunas = len(df_export.columns)
     from openpyxl.utils import get_column_letter
     ultima_col = get_column_letter(max(n_colunas, 10))
@@ -135,7 +128,6 @@ def gerar_excel(df, contratante="", data_inicio=None, data_fim=None):
         for col_idx in range(1, max(n_colunas, 10) + 1):
             ws.cell(row=linha, column=col_idx).fill = fill_header
 
-    # ── Cabeçalho da tabela — linha 5 ────────────────────────────────────────
     linha_header = 5
     fill_col_header = PatternFill("solid", fgColor="1B3C88")
     borda = Border(
@@ -151,9 +143,7 @@ def gerar_excel(df, contratante="", data_inicio=None, data_fim=None):
         cel.border = borda
     ws.row_dimensions[linha_header].height = 36
 
-    # ── Dados — a partir da linha 6 ──────────────────────────────────────────
     fill_par = PatternFill("solid", fgColor="F0F3FA")
-    formato_moeda = '#.##0,00'
 
     for row_idx, row in enumerate(df_export.itertuples(index=False), start=linha_header + 1):
         fill_linha = fill_par if row_idx % 2 == 0 else None
@@ -167,7 +157,6 @@ def gerar_excel(df, contratante="", data_inicio=None, data_fim=None):
             )
             if fill_linha:
                 cel.fill = fill_linha
-            # Formata colunas monetárias
             nome_col = df_export.columns[col_idx - 1]
             if nome_col in colunas_valor:
                 cel.number_format = u'_-R$\xa0#.##0,00_-'
@@ -175,7 +164,6 @@ def gerar_excel(df, contratante="", data_inicio=None, data_fim=None):
                 cel.number_format = "DD/MM/YYYY"
         ws.row_dimensions[row_idx].height = 22
 
-    # ── Largura das colunas ───────────────────────────────────────────────────
     larguras = {
         "Contratante": 30, "Devedor": 28, "CPF": 16, "Tipo de Titulo": 16,
         "Tipo de Acordo": 16, "Tipo de Baixa": 16, "ID": 10,
@@ -188,7 +176,6 @@ def gerar_excel(df, contratante="", data_inicio=None, data_fim=None):
         letra = get_column_letter(col_idx)
         ws.column_dimensions[letra].width = larguras.get(nome_col, 14)
 
-    # Largura das colunas A-C para acomodar a logo
     ws.column_dimensions["A"].width = 6
     ws.column_dimensions["B"].width = 6
     ws.column_dimensions["C"].width = 12
@@ -259,6 +246,7 @@ def carregar_dados():
     database_url = database_url.split("?")[0]
     engine = create_engine(database_url)
     return pd.read_sql("SELECT * FROM pagamentos", engine)
+
 
 def inicializar_sessao():
     st.session_state.setdefault("logado", False)
@@ -632,6 +620,7 @@ def aplicar_estilos():
                 letter-spacing: 0.06em;
                 margin-bottom: 1rem;
             }
+
             div[data-testid="stTextInput"] input {
                 border: 1px solid rgba(154, 166, 178, 0.22) !important;
                 border-radius: 12px !important;
@@ -724,7 +713,8 @@ def aplicar_estilos():
             button[data-testid="stBaseButton-secondary"] * {
                 color: #f8fbff !important;
             }
-                        /* ===== GRAFICO ===== */
+
+            /* ===== GRAFICO ===== */
             .grafico-card {
                 margin-top: 0.35rem;
                 margin-bottom: 0.4rem;
@@ -774,7 +764,7 @@ def aplicar_estilos():
 
             .tabela-acoes [data-testid="stPopover"] { width: 100%; display: flex; justify-content: flex-end; }
             .tabela-acoes [data-testid="stPopover"] > div { width: 100%; display: flex; justify-content: flex-end; }
-            
+
             [data-testid="stPopover"] button {
                 background-color: #1b3c88 !important;
                 color: #f8fbff !important;
@@ -797,6 +787,7 @@ def aplicar_estilos():
             [data-testid="stPopover"] button * {
                 color: #f8fbff !important;
             }
+
             .exportacao-popover-titulo { color: #10213f; font-size: 0.96rem; font-weight: 700; margin-bottom: 0.2rem; }
             .exportacao-popover-subtitulo { color: #5b6b86; font-size: 0.82rem; line-height: 1.45; margin-bottom: 0.7rem; }
 
@@ -845,6 +836,48 @@ def aplicar_estilos():
             .dashboard-loader-title { color: #f8fbff; font-size: 1.35rem; font-weight: 700; letter-spacing: -0.02em; }
             .dashboard-loader-subtitle { color: #93a4c8; font-size: 0.95rem; margin-top: 0.45rem; line-height: 1.55; }
 
+            /* ===== PAGINA USUARIOS ===== */
+            .usuarios-card {
+                background: rgba(255, 255, 255, 0.84);
+                border: 1px solid rgba(27, 60, 136, 0.08);
+                border-radius: 18px;
+                padding: 1.2rem 1.4rem;
+                box-shadow: 0 10px 28px rgba(15, 23, 42, 0.06);
+                margin-bottom: 1.2rem;
+            }
+
+            .usuarios-card-titulo {
+                color: #10213f;
+                font-size: 1.02rem;
+                font-weight: 700;
+                letter-spacing: -0.01em;
+                margin-bottom: 0.2rem;
+            }
+
+            .usuarios-card-subtitulo {
+                color: #5b6b86;
+                font-size: 0.84rem;
+                margin-bottom: 1rem;
+            }
+
+            .status-badge-ativo {
+                background: #dcfce7;
+                color: #166534;
+                border-radius: 20px;
+                padding: 2px 10px;
+                font-size: 0.75rem;
+                font-weight: 600;
+            }
+
+            .status-badge-pendente {
+                background: #fef9c3;
+                color: #854d0e;
+                border-radius: 20px;
+                padding: 2px 10px;
+                font-size: 0.75rem;
+                font-weight: 600;
+            }
+
             /* ===== RESPONSIVE ===== */
             @media (max-width: 980px) {
                 .topo-dashboard-outer { border-radius: 0 0 14px 14px; padding: 0.75rem 1rem; }
@@ -867,7 +900,7 @@ def aplicar_estilos():
                 .login-shell::before { width: 280px; height: 280px; }
                 .login-shell::after { width: 180px; height: 180px; }
                 .login-form-col { max-width: none; margin: 0 auto; }
-                .login-shell { min-height: 100vh; padding: 1.5rehm 1rem; }
+                .login-shell { min-height: 100vh; padding: 1.5rem 1rem; }
             }
 
             .tabela-acoes [data-testid="stPopover"] button:hover,
@@ -877,6 +910,7 @@ def aplicar_estilos():
                 color: #f8fbff !important;
                 filter: brightness(1.2) !important;
             }
+
             [data-testid="stCaptionContainer"] p,
             [data-testid="stCaptionContainer"] {
                 color: #10213f !important;
@@ -929,26 +963,11 @@ def aplicar_estilos():
                 letter-spacing: 0.04em;
             }
 
-            .ag-theme-alpine .ag-icon {
-                color: #f8fbff !important;
-            }
-
-            .ag-theme-alpine .ag-floating-filter .ag-icon {
-                color: #1b3c88 !important;
-            }
-
-            .ag-theme-alpine .ag-floating-filter {
-                background-color: #f0f3fa !important;
-            }
-
-            .ag-theme-alpine .ag-cell {
-                color: #10213f !important;
-                font-size: 0.84rem !important;
-            }
-
-            .ag-theme-alpine .ag-row {
-                color: #10213f !important;
-            }
+            .ag-theme-alpine .ag-icon { color: #f8fbff !important; }
+            .ag-theme-alpine .ag-floating-filter .ag-icon { color: #1b3c88 !important; }
+            .ag-theme-alpine .ag-floating-filter { background-color: #f0f3fa !important; }
+            .ag-theme-alpine .ag-cell { color: #10213f !important; font-size: 0.84rem !important; }
+            .ag-theme-alpine .ag-row { color: #10213f !important; }
 
             .ag-theme-alpine .ag-popup,
             .ag-theme-alpine .ag-popup-child,
@@ -960,9 +979,7 @@ def aplicar_estilos():
 
             .ag-theme-alpine .ag-filter *,
             .ag-theme-alpine .ag-menu *,
-            .ag-theme-alpine .ag-popup * {
-                color: #10213f !important;l
-            }
+            .ag-theme-alpine .ag-popup * { color: #10213f !important; }
 
             .ag-theme-alpine .ag-picker-field-wrapper,
             .ag-theme-alpine .ag-select .ag-picker-field-display,
@@ -995,11 +1012,8 @@ def aplicar_estilos():
                 opacity: 1 !important;
             }
 
-            div[data-testid="stDownloadButton"] > button * {
-                color: #f8fbff !important;
-            }
+            div[data-testid="stDownloadButton"] > button * { color: #f8fbff !important; }
 
-            /* ===== EXPANDER — texto do summary sempre visivel ===== */
             div[data-testid="stExpander"] details summary,
             div[data-testid="stExpander"] details summary p,
             div[data-testid="stExpander"] details summary span,
@@ -1240,6 +1254,7 @@ def renderizar_primeiro_acesso():
     st.success("Senha atualizada com sucesso.")
     st.rerun()
 
+
 def renderizar_carregamento_dashboard():
     st.markdown(
         """
@@ -1263,15 +1278,6 @@ def renderizar_carregamento_dashboard():
 
 
 def preparar_dataframe():
-    # if (
-    #     st.session_state.get("dashboard_df_preparado") is not None
-    #     and st.session_state.get("dashboard_colunas_preparadas") is not None
-    # ):
-    #     return (
-    #         st.session_state["dashboard_df_preparado"].copy(),
-    #         dict(st.session_state["dashboard_colunas_preparadas"]),
-    #     )
-
     try:
         df = carregar_dados()
     except Exception as exc:
@@ -1455,17 +1461,167 @@ def renderizar_filtro_contratantes(contratantes):
     return st.session_state["contratantes_selecionados"]
 
 
+# ═══════════════════════════════════════════════════════════════
+# PAGINA DE USUARIOS (somente admin)
+# ═══════════════════════════════════════════════════════════════
+
+def carregar_usuarios():
+    with conectar_banco() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT
+                usuario,
+                contratante,
+                tipo_usuario,
+                primeiro_acesso,
+                login_simplificado
+            FROM usuarios
+            ORDER BY login_simplificado, usuario
+        """)
+        colunas = [desc[0] for desc in cursor.description]
+        return [dict(zip(colunas, row)) for row in cursor.fetchall()]
+
+
+def renderizar_pagina_usuarios():
+    st.markdown('<div class="usuarios-card">', unsafe_allow_html=True)
+    st.markdown(
+        """
+        <div class="usuarios-card-titulo">Gerenciamento de Usuarios</div>
+        <div class="usuarios-card-subtitulo">Visualize todos os usuarios cadastrados e realize o reset de senha quando necessario.</div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # ── Listagem de usuários ──────────────────────────────────────────────────
+    try:
+        usuarios = carregar_usuarios()
+    except Exception as exc:
+        st.error(f"Erro ao carregar usuarios: {exc}")
+        st.markdown("</div>", unsafe_allow_html=True)
+        return
+
+    if not usuarios:
+        st.info("Nenhum usuario cadastrado.")
+        st.markdown("</div>", unsafe_allow_html=True)
+        return
+
+    df_usuarios = pd.DataFrame(usuarios)
+    df_usuarios["Status"] = df_usuarios["primeiro_acesso"].apply(
+        lambda v: "⚠️ Pendente" if int(v) == 1 else "✅ Ativo"
+    )
+    df_usuarios["Tipo"] = df_usuarios["tipo_usuario"].apply(
+        lambda v: "👑 Admin" if v == "admin" else "👤 Cliente"
+    )
+
+    df_exibir = df_usuarios.rename(columns={
+        "usuario": "Usuario",
+        "contratante": "Contratante",
+        "login_simplificado": "Login",
+    })[["Login", "Usuario", "Contratante", "Tipo", "Status"]]
+
+    st.dataframe(
+        df_exibir,
+        use_container_width=True,
+        hide_index=True,
+        height=360,
+    )
+
+    total = len(df_usuarios)
+    ativos = (df_usuarios["primeiro_acesso"].astype(int) == 0).sum()
+    pendentes = total - ativos
+
+    col_t, col_a, col_p = st.columns(3)
+    col_t.metric("Total de usuarios", total)
+    col_a.metric("Ativos", ativos)
+    col_p.metric("Pendentes de troca de senha", pendentes)
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    # ── Reset de senha ────────────────────────────────────────────────────────
+    st.markdown('<div class="usuarios-card" style="margin-top:1rem;">', unsafe_allow_html=True)
+    st.markdown(
+        """
+        <div class="usuarios-card-titulo">Reset de Senha</div>
+        <div class="usuarios-card-subtitulo">
+            Informe o usuario e a nova senha provisoria. O sistema identifica automaticamente
+            se e admin ou cliente e aplica o reset nos registros corretos.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    logins_disponiveis = sorted(df_usuarios["usuario"].dropna().unique().tolist())
+
+    with st.form("form_reset_senha"):
+        col_login, col_senha, col_confirma = st.columns(3)
+
+        with col_login:
+            usuario_reset = st.selectbox(
+                "Usuario",
+                options=logins_disponiveis,
+                index=None,
+                placeholder="Selecione o usuario...",
+            )
+
+        with col_senha:
+            nova_senha_reset = st.text_input(
+                "Nova senha provisoria",
+                type="password",
+                placeholder="Minimo 8 caracteres",
+            )
+
+        with col_confirma:
+            confirmar_senha_reset = st.text_input(
+                "Confirmar nova senha",
+                type="password",
+                placeholder="Repita a senha",
+            )
+
+        submitted_reset = st.form_submit_button("Resetar senha", use_container_width=True)
+
+    if submitted_reset:
+        if not usuario_reset:
+            st.error("Selecione um usuario.")
+        elif not nova_senha_reset:
+            st.error("Informe a nova senha.")
+        elif nova_senha_reset != confirmar_senha_reset:
+            st.error("As senhas nao coincidem.")
+        else:
+            senha_valida, mensagem = validar_nova_senha(nova_senha_reset)
+            if not senha_valida:
+                st.error(mensagem)
+            else:
+                try:
+                    linhas = atualizar_senha_usuario(
+                        usuario_reset,
+                        nova_senha_reset,
+                        primeiro_acesso=True,
+                    )
+                    if linhas:
+                        st.success(
+                            f"Senha resetada com sucesso para {linhas} registro(s). "
+                            f"O usuario devera trocar a senha no proximo acesso."
+                        )
+                    else:
+                        st.warning("Nenhum registro atualizado. Verifique o usuario informado.")
+                except Exception as exc:
+                    st.error(f"Erro ao resetar senha: {exc}")
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+# ═══════════════════════════════════════════════════════════════
+# DASHBOARD PRINCIPAL
+# ═══════════════════════════════════════════════════════════════
+
 def renderizar_dashboard():
     df, colunas = preparar_dataframe()
 
-    # Data de atualizacao para exibir no topo
     data_atualizacao = None
     if not df.empty and colunas.get("data_pagto"):
         data_max_raw = df[colunas["data_pagto"]].max()
         if not pd.isna(data_max_raw):
             data_atualizacao = pd.Timestamp(data_max_raw).strftime("%d/%m/%Y")
-
-    renderizar_topo(data_atualizacao=data_atualizacao)
 
     if df.empty:
         st.warning("Nao ha pagamentos disponiveis para exibicao.")
@@ -1649,7 +1805,6 @@ def renderizar_dashboard():
         renderizar_acao_exportacao("CSV", "dados_filtrados.csv", csv_file, CSV_ICON_PATH, "download_csv_popup")
     st.markdown("</div>", unsafe_allow_html=True)
 
-    # ── AgGrid com filtros por coluna (estilo Excel) ─────────────────────────
     colunas_valor_aggrid = {
         "V. Princ", "V. Juros Contrat", "V. Juros Asses",
         "V. Multa", "V. Honor", "V. Receb", "V. Repasse", "V. Comissão",
@@ -1687,6 +1842,7 @@ def renderizar_dashboard():
             return 0;
         }
     """)
+
     for col in df_exibicao.columns:
         if col in colunas_numericas:
             if col == "Dias":
@@ -1699,7 +1855,7 @@ def renderizar_dashboard():
                         .str.replace(",", ".", regex=False)
                         .str.strip(),
                     errors="coerce",
-            )
+                )
             gb.configure_column(
                 col,
                 filter="agNumberColumnFilter",
@@ -1797,9 +1953,9 @@ def renderizar_dashboard():
     )
 
     grid_options = gb.build()
-    # ── Linha de total fixada no rodapé ──────────────────────────────────────────
+
     colunas_somar = ["V. Princ", "V. Juros Contrat", "V. Juros Asses",
-                    "V. Multa", "V. Honor", "V. Receb", "V. Repasse", "V. Comissão"]
+                     "V. Multa", "V. Honor", "V. Receb", "V. Repasse", "V. Comissão"]
 
     linha_total = {col: "" for col in df_exibicao.columns}
     linha_total["Contratante"] = "TOTAL"
@@ -1818,7 +1974,7 @@ def renderizar_dashboard():
                     .str.strip(),
                 errors="coerce"
             ).sum()
-            linha_total[col_encontrada] = float(soma)  # converte numpy.float64 → float nativo
+            linha_total[col_encontrada] = float(soma)
 
     grid_options["pinnedBottomRowData"] = [linha_total]
 
@@ -1836,6 +1992,10 @@ def renderizar_dashboard():
     st.markdown("</div>", unsafe_allow_html=True)
 
 
+# ═══════════════════════════════════════════════════════════════
+# MAIN
+# ═══════════════════════════════════════════════════════════════
+
 def main():
     aplicar_estilos()
     inicializar_sessao()
@@ -1852,7 +2012,29 @@ def main():
         renderizar_carregamento_dashboard()
         return
 
-    renderizar_dashboard()
+    # ── Topo fixo (logo + usuario + botao sair) ───────────────────────────────
+    df_topo, colunas_topo = preparar_dataframe()
+    data_atualizacao = None
+    if not df_topo.empty and colunas_topo.get("data_pagto"):
+        data_max_raw = df_topo[colunas_topo["data_pagto"]].max()
+        if not pd.isna(data_max_raw):
+            data_atualizacao = pd.Timestamp(data_max_raw).strftime("%d/%m/%Y")
+    renderizar_topo(data_atualizacao=data_atualizacao)
+
+    # ── Navegacao por abas (admin vê duas abas, cliente vê apenas dashboard) ──
+    is_admin = st.session_state.get("tipo_usuario") == "admin"
+
+    if is_admin:
+        aba_dashboard, aba_usuarios = st.tabs(["📊 Dashboard", "👥 Usuarios"])
+
+        with aba_dashboard:
+            renderizar_dashboard()
+
+        with aba_usuarios:
+            renderizar_pagina_usuarios()
+
+    else:
+        renderizar_dashboard()
 
 
 main()
