@@ -106,9 +106,14 @@ def atualizar_senha_usuario(usuario, nova_senha, primeiro_acesso=False):
         cursor = conn.cursor()
         cursor.execute(
             """
-            UPDATE usuarios
+           UPDATE usuarios
             SET senha_hash = %s, primeiro_acesso = %s
-            WHERE TRIM(usuario) = TRIM(%s)
+            WHERE TRIM(login_simplificado) = (
+                SELECT TRIM(login_simplificado)
+                FROM usuarios
+                WHERE TRIM(usuario) = TRIM(%s)
+                LIMIT 1
+            )
             """,
             (senha_hash, 1 if primeiro_acesso else 0, usuario.strip()),
         )
