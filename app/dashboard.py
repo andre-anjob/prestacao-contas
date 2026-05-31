@@ -2069,7 +2069,7 @@ def renderizar_aba_reflexos():
     col_f1, col_f2, col_f3 = st.columns(3)
 
     with col_f1:
-        st.markdown('<div style="color:#10213f; font-weight:700; margin-bottom:0.5rem; font-size:0.85rem; text-transform:uppercase; letter-spacing:0.05em;">Contratante</div>', unsafe_allow_html=True)
+        st.markdown('<div style="color:#10213f; font-weight:700; margin-bottom:0.6rem; font-size:0.85rem; text-transform:uppercase; letter-spacing:0.05em;">Contratante</div>', unsafe_allow_html=True)
         contratantes_disponiveis = sorted(df["contratante"].dropna().unique().tolist())
         contratante_selecionado = st.selectbox(
             "Contratante",
@@ -2079,7 +2079,7 @@ def renderizar_aba_reflexos():
         )
 
     with col_f2:
-        st.markdown('<div style="color:#10213f; font-weight:700; margin-bottom:0.5rem; font-size:0.85rem; text-transform:uppercase; letter-spacing:0.05em;">Data Referência</div>', unsafe_allow_html=True)
+        st.markdown('<div style="color:#10213f; font-weight:700; margin-bottom:0.6rem; font-size:0.85rem; text-transform:uppercase; letter-spacing:0.05em;">Data Referência</div>', unsafe_allow_html=True)
         df["data_referencia"] = pd.to_datetime(df["data_referencia"], errors="coerce")
         data_min = df["data_referencia"].min().date()
         data_max = df["data_referencia"].max().date()
@@ -2092,7 +2092,7 @@ def renderizar_aba_reflexos():
         )
 
     with col_f3:
-        st.markdown('<div style="color:#10213f; font-weight:700; margin-bottom:0.5rem; font-size:0.85rem; text-transform:uppercase; letter-spacing:0.05em;">Nome / CPF</div>', unsafe_allow_html=True)
+        st.markdown('<div style="color:#10213f; font-weight:700; margin-bottom:0.6rem; font-size:0.85rem; text-transform:uppercase; letter-spacing:0.05em;">Nome / CPF</div>', unsafe_allow_html=True)
         busca_nome = st.text_input(
             "Buscar",
             placeholder="Digite nome ou CPF/CNPJ...",
