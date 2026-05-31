@@ -232,7 +232,6 @@ COLUNAS_TABELA_DESEJADAS = [
     ("V. Receb", ("V. Receb",)),
     ("V. Repasse", ("V. Repasse",)),
     ("V. Comissão", ("V. Comissão", "V. Comissao", "V. ComissÃ£o")),
-    ("Campanha", ("Campanha",)),
     ("Tipo de Baixa", ("Tipo de Baixa",)),
 ]
 
@@ -1967,18 +1966,356 @@ def renderizar_dashboard():
             None
         )
         if col_encontrada:
-            try:
-                col_real = resolver_coluna(df_filtrado, col, col_encontrada)
-                soma = pd.to_numeric(df_filtrado[col_real], errors="coerce").sum()
-                linha_total[col_encontrada] = float(soma)
-            except KeyError:
-                pass
+            soma = pd.to_numeric(
+                df_exibicao[col_encontrada].astype(str)
+                    .str.replace("R$", "", regex=False)
+                    .str.replace(".", "", regex=False)
+                    .str.replace(",", ".", regex=False)
+                    .str.strip(),
+                errors="coerce"
+            ).sum()
+            linha_total[col_encontrada] = float(soma)
 
     grid_options["pinnedBottomRowData"] = [linha_total]
 
     AgGrid(
         df_exibicao,
         gridOptions=grid_options,
+        update_mode=GridUpdateMode.NO_UPDATE,
+        fit_columns_on_grid_load=False,
+        allow_unsafe_jscode=True,
+        enable_enterprise_modules=False,
+        theme="alpine",
+        height=520,
+        use_container_width=True,
+    )
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+# ═══════════════════════════════════════════════════════════════
+# ABA REFLEXOS DE CÁLCULOS
+# ═══════════════════════════════════════════════════════════════
+
+@st.cache_data(ttl=300, show_spinner=False)
+def carregar_reflexos():
+    """Carrega todos os reflexos de cálculos do Supabase."""
+    import os
+    from sqlalchemy import create_engine
+    database_url = os.environ.get("DATABASE_URL", "")
+    if database_url.startswith("postgresql://"):
+        database_url = database_url.replace("postgresql://", "postgresql+psycopg2://", 1)
+    database_url = database_url.split("?")[0]
+    engine = create_engine(database_url)
+    return pd.read_sql("""
+        SELECT
+            contratante,
+            data_referencia,
+            ac_cancelado,
+            ac_ativo,
+            cpf_cnpj,
+            nome,
+            data_inclusao,
+            atraso,
+            vencimento,
+            vlr_parcela,
+            vl_negociado,
+            num_prest,
+            plano,
+            pct_pago,
+            faixa_atraso,
+            montante_principal,
+            vl_principal,
+            j_contratante,
+            j_smart,
+            multa,
+            ho_smart,
+            vl_a_recebido,
+            vl_repasse,
+            vl_comissao,
+            obs
+        FROM reflexos_calculo
+        ORDER BY data_referencia DESC, contratante
+    """, engine)
+
+
+def renderizar_aba_reflexos():
+    """Renderiza a aba de Reflexos de Cálculos."""
+
+    try:
+        df = carregar_reflexos()
+    except Exception as exc:
+        st.error(f"Erro ao carregar reflexos de cálculos: {exc}")
+        return
+
+    if df.empty:
+        st.info("Nenhum reflexo de cálculo disponível.")
+        return
+
+    # ── Filtro por contratante (admin vê todos, cliente vê só os seus) ────────
+    is_admin = st.session_state.get("tipo_usuario") == "admin"
+
+    if not is_admin:
+        vinculados = st.session_state.get("contratantes_vinculados") or [st.session_state["contratante"]]
+        df = df[df["contratante"].isin(vinculados)].copy()
+
+    if df.empty:
+        st.warning("Nenhum reflexo de cálculo disponível para o usuário logado.")
+        return
+
+    # ── Filtros ───────────────────────────────────────────────────────────────
+    st.markdown('<div class="filtros-wrap">', unsafe_allow_html=True)
+    st.markdown('<div class="filtros-titulo">Filtros</div>', unsafe_allow_html=True)
+
+    col_f1, col_f2, col_f3 = st.columns(3)
+
+    with col_f1:
+        st.markdown('<div style="color:#10213f; font-weight:700; margin-bottom:0.5rem; font-size:0.85rem; text-transform:uppercase; letter-spacing:0.05em;">Contratante</div>', unsafe_allow_html=True)
+        contratantes_disponiveis = sorted(df["contratante"].dropna().unique().tolist())
+        contratante_selecionado = st.selectbox(
+            "Contratante",
+            options=["Todos"] + contratantes_disponiveis,
+            label_visibility="collapsed",
+            key="reflexos_filtro_contratante",
+        )
+
+    with col_f2:
+        st.markdown('<div style="color:#10213f; font-weight:700; margin-bottom:0.5rem; font-size:0.85rem; text-transform:uppercase; letter-spacing:0.05em;">Data Referência</div>', unsafe_allow_html=True)
+        df["data_referencia"] = pd.to_datetime(df["data_referencia"], errors="coerce")
+        data_min = df["data_referencia"].min().date()
+        data_max = df["data_referencia"].max().date()
+        periodo = st.date_input(
+            "Período",
+            value=(data_min, data_max),
+            format="DD/MM/YYYY",
+            label_visibility="collapsed",
+            key="reflexos_filtro_periodo",
+        )
+
+    with col_f3:
+        st.markdown('<div style="color:#10213f; font-weight:700; margin-bottom:0.5rem; font-size:0.85rem; text-transform:uppercase; letter-spacing:0.05em;">Nome / CPF</div>', unsafe_allow_html=True)
+        busca_nome = st.text_input(
+            "Buscar",
+            placeholder="Digite nome ou CPF/CNPJ...",
+            label_visibility="collapsed",
+            key="reflexos_busca_nome",
+        )
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    # ── Aplicar filtros ───────────────────────────────────────────────────────
+    df_filtrado = df.copy()
+
+    if contratante_selecionado != "Todos":
+        df_filtrado = df_filtrado[df_filtrado["contratante"] == contratante_selecionado]
+
+    if isinstance(periodo, (list, tuple)) and len(periodo) == 2:
+        data_inicio = pd.Timestamp(periodo[0]).normalize()
+        data_fim = pd.Timestamp(periodo[1]).normalize() + pd.Timedelta(days=1) - pd.Timedelta(microseconds=1)
+        df_filtrado = df_filtrado[
+            (df_filtrado["data_referencia"] >= data_inicio) &
+            (df_filtrado["data_referencia"] <= data_fim)
+        ]
+
+    if busca_nome.strip():
+        busca = busca_nome.strip().lower()
+        df_filtrado = df_filtrado[
+            df_filtrado["nome"].fillna("").str.lower().str.contains(busca) |
+            df_filtrado["cpf_cnpj"].fillna("").str.lower().str.contains(busca)
+        ]
+
+    # ── Cards de totais ───────────────────────────────────────────────────────
+    total_recebido  = df_filtrado["vl_a_recebido"].sum()
+    total_repasse   = df_filtrado["vl_repasse"].sum()
+    total_comissao  = df_filtrado["vl_comissao"].sum()
+    total_principal = df_filtrado["vl_principal"].sum()
+    total_registros = len(df_filtrado)
+
+    c1, c2, c3, c4, c5 = st.columns(5)
+    c1.metric("Vl. A Recebido",  formatar_real(total_recebido))
+    c2.metric("Vl. Repasse",     formatar_real(total_repasse))
+    c3.metric("Vl. Comissão",    formatar_real(total_comissao))
+    c4.metric("Vl. Principal",   formatar_real(total_principal))
+    c5.metric("Registros",       total_registros)
+
+    if df_filtrado.empty:
+        st.info("Nenhum registro encontrado para os filtros selecionados.")
+        return
+
+    # ── Preparar DataFrame para exibição ─────────────────────────────────────
+    df_exibicao = df_filtrado.copy()
+
+    for col_data in ["data_referencia", "data_inclusao", "vencimento"]:
+        if col_data in df_exibicao.columns:
+            df_exibicao[col_data] = pd.to_datetime(
+                df_exibicao[col_data], errors="coerce"
+            ).dt.strftime("%d/%m/%Y")
+
+    colunas_valor_reflexos = [
+        "vlr_parcela", "vl_negociado", "montante_principal", "vl_principal",
+        "j_contratante", "j_smart", "multa", "ho_smart",
+        "vl_a_recebido", "vl_repasse", "vl_comissao",
+    ]
+    for col in colunas_valor_reflexos:
+        if col in df_exibicao.columns:
+            df_exibicao[col] = pd.to_numeric(df_exibicao[col], errors="coerce").apply(
+                lambda v: f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+                if pd.notna(v) else ""
+            )
+
+    df_exibicao = df_exibicao.rename(columns={
+        "contratante":          "Contratante",
+        "data_referencia":      "Data Ref.",
+        "ac_cancelado":         "AC. Cancelado",
+        "ac_ativo":             "AC. Ativo",
+        "cpf_cnpj":             "CPF/CNPJ",
+        "nome":                 "Nome",
+        "data_inclusao":        "Data Inclusão",
+        "atraso":               "Atraso",
+        "vencimento":           "Vencimento",
+        "vlr_parcela":          "Vlr Parcela",
+        "vl_negociado":         "Vl. Negociado",
+        "num_prest":            "Num Prest",
+        "plano":                "Plano",
+        "pct_pago":             "% Pago",
+        "faixa_atraso":         "Faixa Atraso",
+        "montante_principal":   "Montante Principal",
+        "vl_principal":         "Vl. Principal",
+        "j_contratante":        "J. Contratante",
+        "j_smart":              "J. Smart",
+        "multa":                "Multa",
+        "ho_smart":             "Ho. Smart",
+        "vl_a_recebido":        "Vl. A Recebido",
+        "vl_repasse":           "Vl. Repasse",
+        "vl_comissao":          "Vl. Comissão",
+        "obs":                  "OBS.",
+    })
+
+    # ── AgGrid ────────────────────────────────────────────────────────────────
+    st.markdown('<div class="tabela-card">', unsafe_allow_html=True)
+    st.markdown(
+        """
+        <div class="tabela-header">
+            <div>
+                <div class="tabela-header-titulo">Reflexos de Cálculos</div>
+                <div class="tabela-header-subtitulo">Detalhamento dos cálculos de acordos por contratante.</div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    gb = GridOptionsBuilder.from_dataframe(df_exibicao)
+
+    gb.configure_default_column(
+        resizable=True,
+        sortable=True,
+        filter=True,
+        floatingFilter=True,
+        suppressMenu=False,
+        filterParams={"buttons": ["reset"], "closeOnApply": True},
+        cellStyle={"fontSize": "13px", "color": "#10213f"},
+    )
+
+    colunas_numericas_reflexos = {
+        "Atraso", "Faixa Atraso", "Num Prest", "Plano",
+        "Vlr Parcela", "Vl. Negociado", "Montante Principal", "Vl. Principal",
+        "J. Contratante", "J. Smart", "Multa", "Ho. Smart",
+        "Vl. A Recebido", "Vl. Repasse", "Vl. Comissão",
+    }
+
+    colunas_data_reflexos = {"Data Ref.", "Data Inclusão", "Vencimento"}
+
+    date_comparator_reflexos = JsCode("""
+        function(filterDate, cellValue) {
+            if (!cellValue) return -1;
+            var parts = cellValue.split('/');
+            if (parts.length !== 3) return -1;
+            var cellDate = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+            if (cellDate < filterDate) return -1;
+            if (cellDate > filterDate) return 1;
+            return 0;
+        }
+    """)
+
+    for col in df_exibicao.columns:
+        if col in colunas_numericas_reflexos:
+            gb.configure_column(
+                col,
+                filter="agNumberColumnFilter",
+                filterParams={"buttons": ["reset"]},
+                headerTooltip=col,
+                type=["numericColumn"],
+            )
+        elif col in colunas_data_reflexos:
+            gb.configure_column(
+                col,
+                filter="agDateColumnFilter",
+                filterParams={
+                    "buttons": ["reset"],
+                    "comparator": date_comparator_reflexos,
+                    "browserDatePicker": True,
+                },
+                headerTooltip=col,
+            )
+        else:
+            gb.configure_column(
+                col,
+                filter="agTextColumnFilter",
+                filterParams={"buttons": ["reset"]},
+                headerTooltip=col,
+            )
+
+    gb.configure_grid_options(
+        domLayout="normal",
+        rowHeight=36,
+        headerHeight=42,
+        floatingFiltersHeight=36,
+        suppressMovableColumns=False,
+        enableBrowserTooltips=True,
+        animateRows=True,
+        localeText={
+            "filterOoo": "Filtrar...",
+            "equals": "Igual a",
+            "notEqual": "Diferente de",
+            "lessThan": "Anterior a",
+            "greaterThan": "Posterior a",
+            "contains": "Contém",
+            "notContains": "Não contém",
+            "startsWith": "Começa com",
+            "endsWith": "Termina com",
+            "blank": "Vazio",
+            "notBlank": "Não vazio",
+            "resetFilter": "Limpar filtro",
+            "noRowsToShow": "Nenhum registro encontrado",
+            "sortAscending": "Ordem crescente",
+            "sortDescending": "Ordem decrescente",
+        },
+    )
+
+    # ── Linha de total no rodapé baseada no df_filtrado ───────────────────────
+    mapa_col_banco = {
+        "Vlr Parcela": "vlr_parcela", "Vl. Negociado": "vl_negociado",
+        "Montante Principal": "montante_principal", "Vl. Principal": "vl_principal",
+        "J. Contratante": "j_contratante", "J. Smart": "j_smart",
+        "Multa": "multa", "Ho. Smart": "ho_smart",
+        "Vl. A Recebido": "vl_a_recebido", "Vl. Repasse": "vl_repasse",
+        "Vl. Comissão": "vl_comissao",
+    }
+
+    linha_total_reflexos = {col: "" for col in df_exibicao.columns}
+    linha_total_reflexos["Contratante"] = "TOTAL"
+
+    for col_exib, col_banco in mapa_col_banco.items():
+        if col_banco in df_filtrado.columns:
+            soma = pd.to_numeric(df_filtrado[col_banco], errors="coerce").sum()
+            linha_total_reflexos[col_exib] = float(soma)
+
+    grid_options_reflexos = gb.build()
+    grid_options_reflexos["pinnedBottomRowData"] = [linha_total_reflexos]
+
+    AgGrid(
+        df_exibicao,
+        gridOptions=grid_options_reflexos,
         update_mode=GridUpdateMode.NO_UPDATE,
         fit_columns_on_grid_load=False,
         allow_unsafe_jscode=True,
@@ -2023,16 +2360,32 @@ def main():
     is_admin = st.session_state.get("tipo_usuario") == "admin"
 
     if is_admin:
-        aba_dashboard, aba_usuarios = st.tabs(["📊 Dashboard", "👥 Usuarios"])
+        aba_dashboard, aba_reflexos, aba_usuarios = st.tabs([
+            "📊 Dashboard",
+            "🧮 Reflexos de Cálculos",
+            "👥 Usuarios",
+        ])
 
         with aba_dashboard:
             renderizar_dashboard()
+
+        with aba_reflexos:
+            renderizar_aba_reflexos()
 
         with aba_usuarios:
             renderizar_pagina_usuarios()
 
     else:
-        renderizar_dashboard()
+        aba_dashboard, aba_reflexos = st.tabs([
+            "📊 Dashboard",
+            "🧮 Reflexos de Cálculos",
+        ])
+
+        with aba_dashboard:
+            renderizar_dashboard()
+
+        with aba_reflexos:
+            renderizar_aba_reflexos()
 
 
 main()
