@@ -2329,11 +2329,20 @@ def renderizar_aba_reflexos():
             row_global += 1
 
     # Linha de totais
+    # Colunas mescladas — soma apenas a primeira linha de cada grupo ac_ativo
+    colunas_primeira_linha = {"vl_negociado", "montante_principal"}
+    df_primeira = df_filtrado.drop_duplicates(subset=["ac_ativo"], keep="first")
+
     colunas_somar_html = [
         "vlr_parcela", "vl_negociado", "montante_principal", "vl_principal",
         "j_contratante", "j_smart", "multa", "ho_smart",
         "vl_a_recebido", "vl_repasse", "vl_comissao",
     ]
+
+    def calcular_soma(col_key):
+        df_base = df_primeira if col_key in colunas_primeira_linha else df_filtrado
+        return pd.to_numeric(df_base[col_key], errors="coerce").sum()
+
     html += f'<tr style="background:{cor_total}; font-weight:700;">'
     for i, (col_key, _) in enumerate(colunas_acordo):
         if i == 0:
@@ -2341,13 +2350,13 @@ def renderizar_aba_reflexos():
         elif i < 3:
             pass
         elif col_key in colunas_somar_html:
-            soma = pd.to_numeric(df_filtrado[col_key], errors="coerce").sum()
+            soma = calcular_soma(col_key)
             html += f'<td style="text-align:right; padding:6px 8px; border:1px solid #e2e8f0; color:{cor_header};">{fmt_val(col_key, soma)}</td>'
         else:
             html += f'<td style="border:1px solid #e2e8f0;"></td>'
     for col_key, _ in colunas_reflexos:
         if col_key in colunas_somar_html:
-            soma = pd.to_numeric(df_filtrado[col_key], errors="coerce").sum()
+            soma = calcular_soma(col_key)
             html += f'<td style="text-align:right; padding:6px 8px; border:1px solid #e2e8f0; color:{cor_header};">{fmt_val(col_key, soma)}</td>'
         else:
             html += f'<td style="border:1px solid #e2e8f0;"></td>'
