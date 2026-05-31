@@ -180,27 +180,51 @@ def conectar_banco() -> psycopg2.extensions.connection:
 def inserir_registros(registros: list[dict], contratante: str, data_referencia) -> int:
     """
     Insere os registros no Supabase mantendo histórico.
+    Ignora registros duplicados com base em:
+    contratante + data_referencia + ac_ativo + num_prest
     """
     if not registros:
         return 0
 
-    colunas = list(registros[0].keys())
-    placeholders = ", ".join(["%s"] * len(colunas))
-    cols_sql = ", ".join(colunas)
-
-    sql = f"INSERT INTO reflexos_calculo ({cols_sql}) VALUES ({placeholders})"
-
     conn = conectar_banco()
+    inseridos = 0
+    ignorados = 0
+
     try:
         with conn:
             with conn.cursor() as cursor:
-                valores = [
-                    tuple(r[c] for c in colunas)
-                    for r in registros
-                ]
-                psycopg2.extras.execute_batch(cursor, sql, valores, page_size=100)
-        log.info(f"  {len(registros)} registro(s) inserido(s) com sucesso.")
-        return len(registros)
+                for r in registros:
+
+                    # Verifica duplicidade antes de inserir
+                    cursor.execute("""
+                        SELECT 1 FROM reflexos_calculo
+                        WHERE contratante    = %s
+                          AND data_referencia = %s
+                          AND ac_ativo        = %s
+                          AND num_prest       = %s
+                        LIMIT 1
+                    """, (
+                        r.get("contratante"),
+                        r.get("data_referencia"),
+                        r.get("ac_ativo"),
+                        r.get("num_prest"),
+                    ))
+
+                    if cursor.fetchone():
+                        ignorados += 1
+                        continue
+
+                    colunas = list(r.keys())
+                    placeholders = ", ".join(["%s"] * len(colunas))
+                    cols_sql = ", ".join(colunas)
+                    cursor.execute(
+                        f"INSERT INTO reflexos_calculo ({cols_sql}) VALUES ({placeholders})",
+                        tuple(r[c] for c in colunas)
+                    )
+                    inseridos += 1
+
+        log.info(f"  {inseridos} registro(s) inserido(s) | {ignorados} ignorado(s) por duplicidade.")
+        return inseridos
     finally:
         conn.close()
 
@@ -219,12 +243,14 @@ def processar_pasta(pasta: str) -> None:
         return
 
     total_inseridos = 0
+    total_ignorados = 0
     erros = []
 
     for arquivo in arquivos:
         try:
             contratante, data_ref, registros = processar_arquivo(str(arquivo))
-            total_inseridos += inserir_registros(registros, contratante, data_ref)
+            inseridos = inserir_registros(registros, contratante, data_ref)
+            total_inseridos += inseridos
         except Exception as exc:
             log.error(f"  ERRO em {arquivo.name}: {exc}")
             erros.append((arquivo.name, str(exc)))
