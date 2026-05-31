@@ -2376,10 +2376,7 @@ def main():
             renderizar_pagina_usuarios()
 
     else:
-        aba_dashboard, aba_reflexos = st.tabs([
-            "📊 Dashboard",
-            "🧮 Reflexos de Cálculos",
-        ])
+        renderizar_dashboard()
 
         with aba_dashboard:
             renderizar_dashboard()
