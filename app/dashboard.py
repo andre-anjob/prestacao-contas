@@ -2190,7 +2190,7 @@ def renderizar_aba_reflexos():
         "obs":                  "OBS.",
     })
 
-    # ── AgGrid ────────────────────────────────────────────────────────────────
+    # ── Tabela HTML estilo Excel com células mescladas ───────────────────────
     st.markdown('<div class="tabela-card">', unsafe_allow_html=True)
     st.markdown(
         """
@@ -2204,126 +2204,156 @@ def renderizar_aba_reflexos():
         unsafe_allow_html=True,
     )
 
-    gb = GridOptionsBuilder.from_dataframe(df_exibicao)
+    # Colunas do bloco ACORDO e REFLEXOS DE CÁLCULOS
+    colunas_acordo = [
+        ("ac_cancelado", "AC. Cancelado"),
+        ("ac_ativo",     "AC. Ativo"),
+        ("cpf_cnpj",     "CPF/CNPJ"),
+        ("nome",         "Nome"),
+        ("data_inclusao","Data Inclusão"),
+        ("atraso",       "Atraso"),
+        ("vencimento",   "Vencimento"),
+        ("vlr_parcela",  "Vlr Parcela"),
+        ("vl_negociado", "Vl. Negociado"),
+        ("num_prest",    "Num Prest"),
+        ("plano",        "Plano"),
+        ("pct_pago",     "% Pago"),
+    ]
+    colunas_reflexos = [
+        ("faixa_atraso",       "Faixa Atraso"),
+        ("montante_principal", "Montante Principal"),
+        ("vl_principal",       "Vl. Principal"),
+        ("j_contratante",      "J. Contratante"),
+        ("j_smart",            "J. Smart"),
+        ("multa",              "Multa"),
+        ("ho_smart",           "Ho. Smart"),
+        ("vl_a_recebido",      "Vl. A Recebido"),
+        ("vl_repasse",         "Vl. Repasse"),
+        ("vl_comissao",        "Vl. Comissão"),
+        ("obs",                "OBS."),
+    ]
 
-    gb.configure_default_column(
-        resizable=True,
-        sortable=True,
-        filter=True,
-        floatingFilter=True,
-        suppressMenu=False,
-        filterParams={"buttons": ["reset"], "closeOnApply": True},
-        cellStyle={"fontSize": "13px", "color": "#10213f"},
-    )
-
-    colunas_numericas_reflexos = {
-        "Atraso", "Faixa Atraso", "Num Prest", "Plano",
-        "Vlr Parcela", "Vl. Negociado", "Montante Principal", "Vl. Principal",
-        "J. Contratante", "J. Smart", "Multa", "Ho. Smart",
-        "Vl. A Recebido", "Vl. Repasse", "Vl. Comissão",
+    colunas_valor_html = {
+        "vlr_parcela", "vl_negociado", "montante_principal", "vl_principal",
+        "j_contratante", "j_smart", "multa", "ho_smart",
+        "vl_a_recebido", "vl_repasse", "vl_comissao",
     }
+    colunas_data_html = {"data_referencia", "data_inclusao", "vencimento"}
+    colunas_mesclar = {"ac_cancelado", "ac_ativo", "cpf_cnpj", "nome", "data_inclusao", "atraso", "vl_negociado", "num_prest", "plano", "faixa_atraso", "montante_principal"}
 
-    colunas_data_reflexos = {"Data Ref.", "Data Inclusão", "Vencimento"}
+    def fmt_val(col, val):
+        if val is None or (isinstance(val, float) and pd.isna(val)):
+            return ""
+        if col in colunas_valor_html:
+            try:
+                return f"R$ {float(val):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+            except:
+                return str(val)
+        if col in colunas_data_html:
+            try:
+                return pd.Timestamp(val).strftime("%d/%m/%Y")
+            except:
+                return str(val)
+        if col == "pct_pago":
+            try:
+                return f"{float(val)*100:.2f}%".replace(".", ",")
+            except:
+                return str(val)
+        return str(val) if val is not None else ""
 
-    date_comparator_reflexos = JsCode("""
-        function(filterDate, cellValue) {
-            if (!cellValue) return -1;
-            var parts = cellValue.split('/');
-            if (parts.length !== 3) return -1;
-            var cellDate = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
-            if (cellDate < filterDate) return -1;
-            if (cellDate > filterDate) return 1;
-            return 0;
-        }
-    """)
+    # Agrupa por ac_ativo para mesclar células
+    df_html = df_filtrado.copy().reset_index(drop=True)
 
-    for col in df_exibicao.columns:
-        if col in colunas_numericas_reflexos:
-            gb.configure_column(
-                col,
-                filter="agNumberColumnFilter",
-                filterParams={"buttons": ["reset"]},
-                headerTooltip=col,
-                type=["numericColumn"],
-            )
-        elif col in colunas_data_reflexos:
-            gb.configure_column(
-                col,
-                filter="agDateColumnFilter",
-                filterParams={
-                    "buttons": ["reset"],
-                    "comparator": date_comparator_reflexos,
-                    "browserDatePicker": True,
-                },
-                headerTooltip=col,
-            )
+    # Calcula rowspan por ac_ativo
+    grupos = []
+    i = 0
+    while i < len(df_html):
+        ac = df_html.iloc[i]["ac_ativo"]
+        j = i + 1
+        while j < len(df_html) and df_html.iloc[j]["ac_ativo"] == ac:
+            j += 1
+        grupos.append((i, j))
+        i = j
+
+    cor_header   = "#1b3c88"
+    cor_subheader = "#0a1f66"
+    cor_par      = "#f4f6fb"
+    cor_impar    = "#ffffff"
+    cor_total    = "#e8edf8"
+
+    n_acordo   = len(colunas_acordo)
+    n_reflexos = len(colunas_reflexos)
+
+    html = f"""
+    <div style="overflow-x:auto; border-radius:10px; border:1px solid rgba(27,60,136,0.12); margin-top:0.5rem;">
+    <table style="border-collapse:collapse; width:100%; font-family:Inter,sans-serif; font-size:12px;">
+      <thead>
+        <tr>
+          <th colspan="{n_acordo}" style="background:{cor_header}; color:#fff; text-align:center; padding:8px 6px; border-right:2px solid #fff; font-size:13px; letter-spacing:0.04em;">ACORDO</th>
+          <th colspan="{n_reflexos}" style="background:{cor_subheader}; color:#fff; text-align:center; padding:8px 6px; font-size:13px; letter-spacing:0.04em;">REFLEXOS DE CÁLCULOS</th>
+        </tr>
+        <tr>
+    """
+    for _, label in colunas_acordo:
+        html += f'<th style="background:{cor_header}; color:#fff; text-align:center; padding:6px 4px; border:1px solid rgba(255,255,255,0.15); white-space:nowrap; font-weight:600;">{label}</th>'
+    for _, label in colunas_reflexos:
+        html += f'<th style="background:{cor_subheader}; color:#fff; text-align:center; padding:6px 4px; border:1px solid rgba(255,255,255,0.15); white-space:nowrap; font-weight:600;">{label}</th>'
+    html += "</tr></thead><tbody>"
+
+    row_global = 0
+    for (inicio, fim) in grupos:
+        span = fim - inicio
+        for rel_idx in range(span):
+            abs_idx = inicio + rel_idx
+            row = df_html.iloc[abs_idx]
+            bg = cor_par if row_global % 2 == 0 else cor_impar
+            html += f'<tr style="background:{bg};">'
+
+            for col_key, _ in colunas_acordo:
+                val = fmt_val(col_key, row.get(col_key))
+                if col_key in colunas_mesclar:
+                    if rel_idx == 0:
+                        html += f'<td rowspan="{span}" style="text-align:center; padding:5px 6px; border:1px solid #e2e8f0; vertical-align:middle; white-space:nowrap;">{val}</td>'
+                else:
+                    html += f'<td style="text-align:center; padding:5px 6px; border:1px solid #e2e8f0; white-space:nowrap;">{val}</td>'
+
+            for col_key, _ in colunas_reflexos:
+                val = fmt_val(col_key, row.get(col_key))
+                if col_key in colunas_mesclar:
+                    if rel_idx == 0:
+                        html += f'<td rowspan="{span}" style="text-align:center; padding:5px 6px; border:1px solid #e2e8f0; vertical-align:middle; white-space:nowrap;">{val}</td>'
+                else:
+                    html += f'<td style="text-align:right; padding:5px 8px; border:1px solid #e2e8f0; white-space:nowrap;">{val}</td>'
+
+            html += "</tr>"
+            row_global += 1
+
+    # Linha de totais
+    colunas_somar_html = [
+        "vlr_parcela", "vl_negociado", "montante_principal", "vl_principal",
+        "j_contratante", "j_smart", "multa", "ho_smart",
+        "vl_a_recebido", "vl_repasse", "vl_comissao",
+    ]
+    html += f'<tr style="background:{cor_total}; font-weight:700;">'
+    for i, (col_key, _) in enumerate(colunas_acordo):
+        if i == 0:
+            html += f'<td colspan="3" style="text-align:center; padding:6px; border:1px solid #e2e8f0; color:{cor_header};">TOTAL</td>'
+        elif i < 3:
+            pass
+        elif col_key in colunas_somar_html:
+            soma = pd.to_numeric(df_filtrado[col_key], errors="coerce").sum()
+            html += f'<td style="text-align:right; padding:6px 8px; border:1px solid #e2e8f0; color:{cor_header};">{fmt_val(col_key, soma)}</td>'
         else:
-            gb.configure_column(
-                col,
-                filter="agTextColumnFilter",
-                filterParams={"buttons": ["reset"]},
-                headerTooltip=col,
-            )
+            html += f'<td style="border:1px solid #e2e8f0;"></td>'
+    for col_key, _ in colunas_reflexos:
+        if col_key in colunas_somar_html:
+            soma = pd.to_numeric(df_filtrado[col_key], errors="coerce").sum()
+            html += f'<td style="text-align:right; padding:6px 8px; border:1px solid #e2e8f0; color:{cor_header};">{fmt_val(col_key, soma)}</td>'
+        else:
+            html += f'<td style="border:1px solid #e2e8f0;"></td>'
+    html += "</tr></tbody></table></div>"
 
-    gb.configure_grid_options(
-        domLayout="normal",
-        rowHeight=36,
-        headerHeight=42,
-        floatingFiltersHeight=36,
-        suppressMovableColumns=False,
-        enableBrowserTooltips=True,
-        animateRows=True,
-        localeText={
-            "filterOoo": "Filtrar...",
-            "equals": "Igual a",
-            "notEqual": "Diferente de",
-            "lessThan": "Anterior a",
-            "greaterThan": "Posterior a",
-            "contains": "Contém",
-            "notContains": "Não contém",
-            "startsWith": "Começa com",
-            "endsWith": "Termina com",
-            "blank": "Vazio",
-            "notBlank": "Não vazio",
-            "resetFilter": "Limpar filtro",
-            "noRowsToShow": "Nenhum registro encontrado",
-            "sortAscending": "Ordem crescente",
-            "sortDescending": "Ordem decrescente",
-        },
-    )
-
-    # ── Linha de total no rodapé baseada no df_filtrado ───────────────────────
-    mapa_col_banco = {
-        "Vlr Parcela": "vlr_parcela", "Vl. Negociado": "vl_negociado",
-        "Montante Principal": "montante_principal", "Vl. Principal": "vl_principal",
-        "J. Contratante": "j_contratante", "J. Smart": "j_smart",
-        "Multa": "multa", "Ho. Smart": "ho_smart",
-        "Vl. A Recebido": "vl_a_recebido", "Vl. Repasse": "vl_repasse",
-        "Vl. Comissão": "vl_comissao",
-    }
-
-    linha_total_reflexos = {col: "" for col in df_exibicao.columns}
-    linha_total_reflexos["Contratante"] = "TOTAL"
-
-    for col_exib, col_banco in mapa_col_banco.items():
-        if col_banco in df_filtrado.columns:
-            soma = pd.to_numeric(df_filtrado[col_banco], errors="coerce").sum()
-            linha_total_reflexos[col_exib] = float(soma)
-
-    grid_options_reflexos = gb.build()
-    grid_options_reflexos["pinnedBottomRowData"] = [linha_total_reflexos]
-
-    AgGrid(
-        df_exibicao,
-        gridOptions=grid_options_reflexos,
-        update_mode=GridUpdateMode.NO_UPDATE,
-        fit_columns_on_grid_load=False,
-        allow_unsafe_jscode=True,
-        enable_enterprise_modules=False,
-        theme="alpine",
-        height=520,
-        use_container_width=True,
-    )
+    st.markdown(html, unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
 
@@ -2376,7 +2406,10 @@ def main():
             renderizar_pagina_usuarios()
 
     else:
-        renderizar_dashboard()
+        aba_dashboard, aba_reflexos = st.tabs([
+            "📊 Dashboard",
+            "🧮 Reflexos de Cálculos",
+        ])
 
         with aba_dashboard:
             renderizar_dashboard()
