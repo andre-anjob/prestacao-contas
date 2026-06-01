@@ -171,6 +171,7 @@ def gerar_excel(df, contratante="", data_inicio=None, data_fim=None):
         "V. Princ": 15, "V. Juros Contrat": 16, "V. Juros Asses": 16,
         "V. Multa": 13, "V. Honor": 13, "V. Receb": 15,
         "V. Repasse": 15, "V. Comissão": 15,
+        "Campanha": 22,
     }
     for col_idx, nome_col in enumerate(df_export.columns, start=1):
         letra = get_column_letter(col_idx)
@@ -232,6 +233,7 @@ COLUNAS_TABELA_DESEJADAS = [
     ("V. Receb", ("V. Receb",)),
     ("V. Repasse", ("V. Repasse",)),
     ("V. Comissão", ("V. Comissão", "V. Comissao", "V. ComissÃ£o")),
+    ("Campanha", ("Campanha",)),
     ("Tipo de Baixa", ("Tipo de Baixa",)),
 ]
 
