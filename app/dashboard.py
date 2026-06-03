@@ -233,7 +233,6 @@ COLUNAS_TABELA_DESEJADAS = [
     ("V. Receb", ("V. Receb",)),
     ("V. Repasse", ("V. Repasse",)),
     ("V. Comissão", ("V. Comissão", "V. Comissao", "V. ComissÃ£o")),
-    ("Campanha", ("Campanha",)),
     ("Tipo de Baixa", ("Tipo de Baixa",)),
 ]
 
