@@ -1544,24 +1544,25 @@ def renderizar_pagina_usuarios():
         """
         <div class="usuarios-card-titulo">Reset de Senha</div>
         <div class="usuarios-card-subtitulo">
-            Informe o usuario e a nova senha provisoria. O sistema identifica automaticamente
-            se e admin ou cliente e aplica o reset nos registros corretos.
+            Selecione o login e a nova senha provisoria. O reset e aplicado a todas as
+            filiais vinculadas ao mesmo login simplificado.
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    logins_disponiveis = sorted(df_usuarios["usuario"].dropna().unique().tolist())
+    # Lista logins únicos (login_simplificado), sem repetir filiais
+    logins_disponiveis = sorted(df_usuarios["login_simplificado"].dropna().unique().tolist())
 
     with st.form("form_reset_senha"):
         col_login, col_senha, col_confirma = st.columns(3)
 
         with col_login:
-            usuario_reset = st.selectbox(
-                "Usuario",
+            login_reset = st.selectbox(
+                "Login",
                 options=logins_disponiveis,
                 index=None,
-                placeholder="Selecione o usuario...",
+                placeholder="Selecione o login...",
             )
 
         with col_senha:
@@ -1581,8 +1582,8 @@ def renderizar_pagina_usuarios():
         submitted_reset = st.form_submit_button("Resetar senha", use_container_width=True)
 
     if submitted_reset:
-        if not usuario_reset:
-            st.error("Selecione um usuario.")
+        if not login_reset:
+            st.error("Selecione um login.")
         elif not nova_senha_reset:
             st.error("Informe a nova senha.")
         elif nova_senha_reset != confirmar_senha_reset:
@@ -1593,23 +1594,29 @@ def renderizar_pagina_usuarios():
                 st.error(mensagem)
             else:
                 try:
+                    # Pega qualquer usuario vinculado a esse login_simplificado;
+                    # atualizar_senha_usuario resolve o login e atualiza todas as filiais.
+                    usuario_exemplo = df_usuarios.loc[
+                        df_usuarios["login_simplificado"] == login_reset, "usuario"
+                    ].iloc[0]
+
                     linhas = atualizar_senha_usuario(
-                        usuario_reset,
+                        usuario_exemplo,
                         nova_senha_reset,
                         primeiro_acesso=True,
                     )
                     if linhas:
                         st.success(
-                            f"Senha resetada com sucesso para {linhas} registro(s). "
+                            f"Senha resetada com sucesso para o login '{login_reset}' "
+                            f"({linhas} filial(is) atualizada(s)). "
                             f"O usuario devera trocar a senha no proximo acesso."
                         )
                     else:
-                        st.warning("Nenhum registro atualizado. Verifique o usuario informado.")
+                        st.warning("Nenhum registro atualizado. Verifique o login informado.")
                 except Exception as exc:
                     st.error(f"Erro ao resetar senha: {exc}")
 
     st.markdown("</div>", unsafe_allow_html=True)
-
 
 # ═══════════════════════════════════════════════════════════════
 # DASHBOARD PRINCIPAL
