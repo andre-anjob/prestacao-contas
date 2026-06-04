@@ -1775,7 +1775,16 @@ def renderizar_dashboard():
 
     csv_file = gerar_csv(df_exibicao)
     contratante_label = ", ".join(contratantes_efetivos) if len(contratantes_efetivos) <= 2 else f"{len(contratantes_efetivos)} contratantes"
-    excel_file = gerar_excel(df_exibicao, contratante=contratante_label, data_inicio=data_inicio, data_fim=data_fim)
+
+    # Injeta Campanha no df exclusivo do Excel, sem afetar a tabela do portal
+    df_excel = df_exibicao.copy()
+    try:
+        col_campanha = resolver_coluna(df_tabela, "Campanha")
+        df_excel["Campanha"] = df_tabela[col_campanha].values
+    except KeyError:
+        pass
+
+    excel_file = gerar_excel(df_excel, contratante=contratante_label, data_inicio=data_inicio, data_fim=data_fim)
     pdf_file = gerar_pdf(df_exibicao)
 
     st.markdown('<div class="tabela-card">', unsafe_allow_html=True)
