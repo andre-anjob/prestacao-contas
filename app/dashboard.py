@@ -1963,12 +1963,11 @@ def renderizar_dashboard():
     )
 
     grid_options = gb.build()
-
     colunas_somar = ["V. Princ", "V. Juros Contrat", "V. Juros Asses",
-                     "V. Multa", "V. Honor", "V. Receb", "V. Repasse", "V. Comissão"]
+                    "V. Multa", "V. Honor", "V. Receb", "V. Repasse", "V. Comissão"]
 
-    linha_total = {col: "" for col in df_exibicao.columns}
-    linha_total["Contratante"] = "TOTAL"
+        # Resolve os nomes reais das colunas a somar dentro do df_exibicao
+    colunas_somar_reais = []
 
     for col in colunas_somar:
         col_encontrada = next(
@@ -1976,17 +1975,52 @@ def renderizar_dashboard():
             None
         )
         if col_encontrada:
-            soma = pd.to_numeric(
-                df_exibicao[col_encontrada].astype(str)
-                    .str.replace("R$", "", regex=False)
-                    .str.replace(".", "", regex=False)
-                    .str.replace(",", ".", regex=False)
-                    .str.strip(),
-                errors="coerce"
-            ).sum()
-            linha_total[col_encontrada] = float(soma)
+            colunas_somar_reais.append(col_encontrada)
 
-    grid_options["pinnedBottomRowData"] = [linha_total]
+        coluna_label_total = "Contratante" if "Contratante" in df_exibicao.columns else df_exibicao.columns[0]
+
+        # Total inicial (sem filtro). Nesse ponto as colunas de valor já estão
+        # numéricas, então soma direto, sem reprocessar como string.
+        linha_total = {col: "" for col in df_exibicao.columns}
+        linha_total[coluna_label_total] = "TOTAL"
+        for col in colunas_somar_reais:
+            linha_total[col] = float(pd.to_numeric(df_exibicao[col], errors="coerce").sum())
+
+        grid_options["pinnedBottomRowData"] = [linha_total]
+
+        # Recalcula o total considerando SOMENTE as linhas visíveis a cada filtro
+        import json
+        colunas_somar_js = json.dumps(colunas_somar_reais)
+        todas_colunas_js = json.dumps(list(df_exibicao.columns))
+        label_col_js = json.dumps(coluna_label_total)
+
+        grid_options["onFilterChanged"] = JsCode(f"""
+            function(params) {{
+                var colunasSomar = {colunas_somar_js};
+                var todasColunas = {todas_colunas_js};
+                var labelCol = {label_col_js};
+
+                var totais = {{}};
+                colunasSomar.forEach(function(c) {{ totais[c] = 0; }});
+
+                params.api.forEachNodeAfterFilter(function(node) {{
+                    if (node.rowPinned) return;
+                    colunasSomar.forEach(function(c) {{
+                        var v = node.data[c];
+                        if (v !== null && v !== undefined && v !== '' && !isNaN(v)) {{
+                            totais[c] += parseFloat(v);
+                        }}
+                    }});
+                }});
+
+                var linhaTotal = {{}};
+                todasColunas.forEach(function(c) {{ linhaTotal[c] = ''; }});
+                linhaTotal[labelCol] = 'TOTAL';
+                colunasSomar.forEach(function(c) {{ linhaTotal[c] = totais[c]; }});
+
+                params.api.setPinnedBottomRowData([linhaTotal]);
+            }}
+        """)
 
     AgGrid(
         df_exibicao,
