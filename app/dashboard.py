@@ -1843,7 +1843,7 @@ def renderizar_dashboard():
         "ID",
         "V. Princ", "V. Juros Contrat", "V. Juros Asses",
         "V. Multa", "V. Honor", "V. Receb", "V. Repasse", "V. Comissão",
-        "Dias", "Titulos Negociados", "N Pres", "Q Pres",
+        "Dias", "N Pres", "Q Pres",
     }
 
     colunas_data = {"Data Venc", "Data Acordo", "Data Pagto"}
@@ -1890,7 +1890,7 @@ def renderizar_dashboard():
                     else "value != null ? 'R$ ' + value.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : ''"
                     if col in colunas_valor_aggrid
                     else "value != null ? value.toLocaleString('pt-BR', {maximumFractionDigits: 0}) : ''"
-                    if col in {"Titulos Negociados", "N Pres", "Q Pres", "ID"}
+                    if col in {"N Pres", "Q Pres", "ID"}
                     else None,
                 headerTooltip=col,
                 type=["numericColumn"],
