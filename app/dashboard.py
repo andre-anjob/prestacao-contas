@@ -1,3 +1,4 @@
+
 import os
 import sys
 import time
@@ -1780,48 +1781,6 @@ def renderizar_dashboard():
 
     df_exibicao = obter_colunas_tabela(df_tabela)
 
-    csv_file = gerar_csv(df_exibicao)
-    contratante_label = ", ".join(contratantes_efetivos) if len(contratantes_efetivos) <= 2 else f"{len(contratantes_efetivos)} contratantes"
-
-    # Injeta Campanha no df exclusivo do Excel, sem afetar a tabela do portal
-    df_excel = df_exibicao.copy()
-    try:
-        col_campanha = resolver_coluna(df_tabela, "Campanha")
-        df_excel["Campanha"] = df_tabela[col_campanha].values
-    except KeyError:
-        pass
-
-    excel_file = gerar_excel(df_excel, contratante=contratante_label, data_inicio=data_inicio, data_fim=data_fim)
-    pdf_file = gerar_pdf(df_exibicao)
-
-    st.markdown('<div class="tabela-card">', unsafe_allow_html=True)
-    st.markdown(
-        """
-        <div class="tabela-header">
-            <div>
-                <div class="tabela-header-titulo">Detalhamento dos pagamentos</div>
-                <div class="tabela-header-subtitulo">A exportacao reflete exatamente os filtros aplicados na tabela.</div>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    st.markdown('<div class="tabela-acoes">', unsafe_allow_html=True)
-    with st.popover("Exportar", use_container_width=False):
-        st.markdown(
-            """
-            <div class="exportacao-popover-titulo">Exportar dados filtrados</div>
-            <div class="exportacao-popover-subtitulo">
-                Escolha o formato desejado para baixar os dados visiveis na tabela.
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        renderizar_acao_exportacao("PDF", "dados_filtrados.pdf", pdf_file, PDF_ICON_PATH, "download_pdf_popup")
-        renderizar_acao_exportacao("Excel", "dados_filtrados.xlsx", excel_file, EXCEL_ICON_PATH, "download_excel_popup")
-        renderizar_acao_exportacao("CSV", "dados_filtrados.csv", csv_file, CSV_ICON_PATH, "download_csv_popup")
-    st.markdown("</div>", unsafe_allow_html=True)
-
     colunas_valor_aggrid = {
         "V. Princ", "V. Juros Contrat", "V. Juros Asses",
         "V. Multa", "V. Honor", "V. Receb", "V. Repasse", "V. Comissão",
@@ -2029,17 +1988,78 @@ def renderizar_dashboard():
             }}
         """)
 
-    AgGrid(
+    # ── Tabela + exportação (exportação reflete o filtro aplicado no AgGrid) ──
+    st.markdown('<div class="tabela-card">', unsafe_allow_html=True)
+    st.markdown(
+        """
+        <div class="tabela-header">
+            <div>
+                <div class="tabela-header-titulo">Detalhamento dos pagamentos</div>
+                <div class="tabela-header-subtitulo">A exportacao reflete exatamente os filtros aplicados na tabela.</div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    grid_resposta = AgGrid(
         df_exibicao,
         gridOptions=grid_options,
-        update_mode=GridUpdateMode.NO_UPDATE,
+        update_mode=GridUpdateMode.MODEL_CHANGED,
+        data_return_mode="FILTERED_AND_SORTED",
         fit_columns_on_grid_load=False,
         allow_unsafe_jscode=True,
         enable_enterprise_modules=False,
         theme="alpine",
         height=520,
         use_container_width=True,
+        key="grid_dashboard_pagamentos",
     )
+
+    # Dados efetivamente visiveis no grid no momento atual (sem filtro
+    # algum aplicado, equivale ao df_exibicao completo). Remove a linha
+    # "TOTAL" pinada, que pode vir junto no retorno filtrado.
+    df_grid_filtrado = pd.DataFrame(grid_resposta["data"])
+    if not df_grid_filtrado.empty and coluna_label_total in df_grid_filtrado.columns:
+        df_grid_filtrado = df_grid_filtrado[
+            df_grid_filtrado[coluna_label_total] != "TOTAL"
+        ].copy()
+
+    contratante_label = ", ".join(contratantes_efetivos) if len(contratantes_efetivos) <= 2 else f"{len(contratantes_efetivos)} contratantes"
+
+    csv_file = gerar_csv(df_grid_filtrado)
+
+    # Injeta Campanha no df exclusivo do Excel, sem afetar a tabela do portal.
+    # Junta por ID (e nao por posicao): apos o filtro do grid, as linhas
+    # restantes nao ficam mais alinhadas posicionalmente com df_tabela.
+    df_excel = df_grid_filtrado.copy()
+    try:
+        col_campanha = resolver_coluna(df_tabela, "Campanha")
+        col_id = resolver_coluna(df_tabela, "ID", "Id", "id")
+        mapa_campanha = df_tabela.set_index(col_id)[col_campanha]
+        if "ID" in df_excel.columns:
+            df_excel["Campanha"] = df_excel["ID"].map(mapa_campanha)
+    except KeyError:
+        pass
+
+    excel_file = gerar_excel(df_excel, contratante=contratante_label, data_inicio=data_inicio, data_fim=data_fim)
+    pdf_file = gerar_pdf(df_grid_filtrado)
+
+    st.markdown('<div class="tabela-acoes">', unsafe_allow_html=True)
+    with st.popover("Exportar", use_container_width=False):
+        st.markdown(
+            """
+            <div class="exportacao-popover-titulo">Exportar dados filtrados</div>
+            <div class="exportacao-popover-subtitulo">
+                Escolha o formato desejado para baixar os dados visiveis na tabela.
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        renderizar_acao_exportacao("PDF", "dados_filtrados.pdf", pdf_file, PDF_ICON_PATH, "download_pdf_popup")
+        renderizar_acao_exportacao("Excel", "dados_filtrados.xlsx", excel_file, EXCEL_ICON_PATH, "download_excel_popup")
+        renderizar_acao_exportacao("CSV", "dados_filtrados.csv", csv_file, CSV_ICON_PATH, "download_csv_popup")
+    st.markdown("</div>", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
 
@@ -2481,3 +2501,5 @@ def main():
 main()
 
 # FIM
+
+
