@@ -2036,9 +2036,13 @@ def renderizar_dashboard():
     try:
         col_campanha = resolver_coluna(df_tabela, "Campanha")
         col_id = resolver_coluna(df_tabela, "ID", "Id", "id")
-        mapa_campanha = df_tabela.set_index(col_id)[col_campanha]
         if "ID" in df_excel.columns:
-            df_excel["Campanha"] = df_excel["ID"].map(mapa_campanha)
+            ids_validos = df_excel["ID"].astype(str)
+            df_tabela_campanha = df_tabela[[col_id, col_campanha]].copy()
+            df_tabela_campanha[col_id] = df_tabela_campanha[col_id].astype(str)
+            df_tabela_campanha = df_tabela_campanha.drop_duplicates(subset=[col_id], keep="first")
+            mapa_campanha = df_tabela_campanha.set_index(col_id)[col_campanha]
+            df_excel["Campanha"] = ids_validos.map(mapa_campanha)
     except KeyError:
         pass
 
@@ -2501,5 +2505,3 @@ def main():
 main()
 
 # FIM
-
-
