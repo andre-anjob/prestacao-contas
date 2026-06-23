@@ -56,6 +56,19 @@ def gerar_csv(df):
     return df.to_csv(index=False, sep=";", encoding="utf-8-sig").encode("utf-8-sig")
 
 
+def _limpar_valor_monetario(valor):
+    if pd.isna(valor):
+        return None
+    if isinstance(valor, (int, float)):
+        return float(valor)
+    texto = str(valor).replace("R$", "").strip()
+    texto = texto.replace(".", "").replace(",", ".")
+    try:
+        return float(texto)
+    except ValueError:
+        return None
+    
+
 def gerar_excel(df, contratante="", data_inicio=None, data_fim=None):
     from openpyxl import Workbook
     from openpyxl.drawing.image import Image as XLImage
@@ -72,17 +85,10 @@ def gerar_excel(df, contratante="", data_inicio=None, data_fim=None):
             )
 
     colunas_valor = ["V. Princ", "V. Juros Contrat", "V. Juros Asses", "V. Multa",
-                     "V. Honor", "V. Receb", "V. Repasse", "V. Comissão"]
+                        "V. Honor", "V. Receb", "V. Repasse", "V. Comissão"]
     for col in colunas_valor:
         if col in df_export.columns:
-            df_export[col] = (
-                df_export[col].astype(str)
-                .str.replace("R$", "", regex=False)
-                .str.replace(".", "", regex=False)
-                .str.replace(",", ".", regex=False)
-                .str.strip()
-            )
-            df_export[col] = pd.to_numeric(df_export[col], errors="coerce")
+            df_export[col] = df_export[col].apply(_limpar_valor_monetario)
 
     wb = Workbook()
     ws = wb.active
