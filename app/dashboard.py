@@ -166,7 +166,7 @@ def gerar_excel(df, contratante="", data_inicio=None, data_fim=None):
                 cel.fill = fill_linha
             nome_col = df_export.columns[col_idx - 1]
             if nome_col in colunas_valor:
-                cel.number_format = u'_-R$\xa0#.##0,00_-'
+                cel.number_format = 'R$ #,##0.00'
             elif nome_col in ["Data Venc", "Data Acordo", "Data Pagto"]:
                 cel.number_format = "DD/MM/YYYY"
         ws.row_dimensions[row_idx].height = 22
