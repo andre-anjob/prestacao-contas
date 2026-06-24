@@ -2045,9 +2045,9 @@ def renderizar_dashboard():
         col_campanha = resolver_coluna(df_tabela, "Campanha")
         col_id = resolver_coluna(df_tabela, "ID", "Id", "id")
         if "ID" in df_excel.columns:
-            ids_validos = df_excel["ID"].astype(str)
+            ids_validos = pd.to_numeric(df_excel["ID"], errors="coerce").astype("Int64").astype(str)
             df_tabela_campanha = df_tabela[[col_id, col_campanha]].copy()
-            df_tabela_campanha[col_id] = df_tabela_campanha[col_id].astype(str)
+            df_tabela_campanha[col_id] = pd.to_numeric(df_tabela_campanha[col_id], errors="coerce").astype("Int64").astype(str)
             df_tabela_campanha = df_tabela_campanha.drop_duplicates(subset=[col_id], keep="first")
             mapa_campanha = df_tabela_campanha.set_index(col_id)[col_campanha]
             df_excel["Campanha"] = ids_validos.map(mapa_campanha)
