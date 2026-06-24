@@ -1811,7 +1811,7 @@ def renderizar_dashboard():
         "Dias", "N Pres", "Q Pres",
     }
 
-    colunas_inteiras_simples = {"Dias", "N Pres", "Q Pres"}
+    colunas_inteiras_simples = {"Dias", "N Pres", "Q Pres", "ID"}
 
     colunas_data = {"Data Venc", "Data Acordo", "Data Pagto"}
 
